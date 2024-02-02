@@ -5,13 +5,48 @@ from functools import partial
 
 TAU = 2 * np.pi
 
-def my_interp(xs, ys, x_final):
-    # given a new x, estimate y. assume x is increasing, and x_final is aliases to xs[0]
-    minimum, maximum = xs[0], x_final
-    def interp(x):
-        x_alias = minimum + (x % (maximum - minimum))
-        return np.interp(x_alias, xs, ys)
-    return interp
+def binary_search(fun, minimum, maximum, target, N=20, visualize=False):
+    if visualize:
+        M = 100
+        xs = np.linspace(minimum, maximum, M)
+        results = []
+        for i in range(M):
+            result = fun(xs[i])
+            results.append(result)
+        plt.figure()
+        plt.plot(xs, results, '*')
+        plt.show()
+
+    rmin = fun(minimum)
+    rmax = fun(maximum)
+
+    if rmin > rmax:
+        # this is so ugly
+        def temp(x):
+            res = fun(x)
+            return 2*target - res
+        fun2 = temp
+        rmin, rmax = rmax, rmin
+    else:
+        fun2 = fun
+
+    if not (rmin <= target <= rmax):
+        raise ValueError('You need to change your bounds on this binary search')
+
+
+    def binary_search_core(fun, target, a, b, N):
+        if N == 0:
+            return a
+
+        c = (a+b)/2
+        res = fun(c)
+        if res < target:
+            return binary_search_core(fun, target, c, b, N-1)
+        else:
+            return binary_search_core(fun, target, a, c, N-1)
+
+    x = binary_search_core(fun2, target, minimum, maximum, N)
+    return x
 
 class Gear:
     def __init__(self, radius_vs_theta, rotation_schedule=None, center_schedule=None):
@@ -129,13 +164,24 @@ class Gear:
         centers = self.center_schedule(ts)
 
 
-        R = 6.75
+        def function(R):
+            new_g_center = np.array([R, 0])
+            new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
+            #new_centers = np.array([[R, 0]]*self.N)
+            new_centers = new_center_schedule(ts)
+
+            return self.get_meshing_gear_attempt(ts, rotations, centers, new_centers)
+
+        def fun(R):
+            res, _ =  function(R)
+            return res
+
+
+        R = binary_search(fun, 3.5, 8, 1, visualize=True)
+
         new_g_center = np.array([R, 0])
         new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
-        #new_centers = np.array([[R, 0]]*self.N)
-        new_centers = new_center_schedule(ts)
-
-        new_contact_local, (new_radius_vs_theta, new_rotation_schedule) = self.get_meshing_gear_attempt(ts, rotations, centers, new_centers)
+        new_contact_local, (new_radius_vs_theta, new_rotation_schedule) = function(R)
         print(new_contact_local)
 
         g = Gear(new_radius_vs_theta, new_rotation_schedule, new_center_schedule)
@@ -224,11 +270,11 @@ class Gear:
 def r_vs_t(t):
     t = t%1
     if t < 0.2:
-        return 2.0
+        return 1.0
     elif t < 0.6:
-        return 2.0 + (3 - 1) / (.6-.2) * (t-.2)
+        return 1.0 + (3 - 1) / (.6-.2) * (t-.2)
     else:
-        return 4.0
+        return 3.0
 r_vs_t = np.vectorize(r_vs_t)
 g = Gear(r_vs_t)
 #g.animate()
