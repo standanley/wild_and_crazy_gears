@@ -67,6 +67,7 @@ def binary_search(fun, minimum, maximum, target, N=20, visualize=False):
         raise ValueError('You need to change your bounds on this binary search')
 
     x = binary_search_core(fun2, target, minimum, maximum, N)
+    print('winning parameter', x)
     return x
 
 
@@ -205,24 +206,38 @@ class Gear:
         def get_mi(R):
             new_g_center = np.array([R, 0])
             new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
-            return MeshingInfo(self, new_center_schedule)
+            return MeshingInfo(self, new_center_schedule, new_num_rotations=2, new_outer=False)
 
-        res = self.get_meshing_gear(get_mi, 3.5, 8)
+        res = self.get_meshing_gear(get_mi, 3.5, 10)
+        #res = self.get_meshing_gear(get_mi, 4.166, 4.168)
         new_g = Gear(res.new_radius_vs_theta, res.new_rotation_schedule, res.new_center_schedule)
         return new_g
 
     @classmethod
     def get_meshing_gear(cls, get_mi, param_min, param_max):
         mi_min, mi_max = get_mi(param_min), get_mi(param_max)
-        target = 1 / mi_min.new_num_rotations
+        target_flip = -1 if mi_min.outer ^ mi_min.new_outer else 1
+        target = 1 / mi_min.new_num_rotations * target_flip
 
         def fun(param):
             mi = get_mi(param)
             res = cls.get_meshing_gear_attempt(mi)
             return res.new_contact_local
 
-        param_opt = binary_search(fun, param_min, param_max, target)
-        return cls.get_meshing_gear_attempt(get_mi(param_opt))
+        param_opt = binary_search(fun, param_min, param_max, target, visualize=False)
+        res = cls.get_meshing_gear_attempt(get_mi(param_opt))
+
+        # TODO I think I don't need this block anymore because it's taken care of
+        #  inside get_meshing_gear_attempt now
+        #if mi_min.new_num_rotations != 1:
+        #    num = mi_min.new_num_rotations
+        #    old_rvt = res.new_radius_vs_theta
+        #    def radius_vs_theta(theta):
+        #        # TODO I don't think the wrapping is perfect here
+        #        return old_rvt(theta % (1/num))
+        #    res.new_radius_vs_theta = radius_vs_theta
+
+        return res
 
 
     @classmethod
@@ -271,13 +286,13 @@ class Gear:
             # contact_global is the angle of the ray from self center to contact point
             contact_global_init = np.arctan2(y1-y0, x1-x0) / TAU
             if mi.outer:
-                contact_global = contact_global_init + 0.5
-            else:
-                contact_global = contact_global_init
-            if mi.new_outer:
                 new_contact_global = contact_global_init
             else:
                 new_contact_global = contact_global_init + 0.5
+            if mi.new_outer:
+                contact_global = contact_global_init + 0.5
+            else:
+                contact_global = contact_global_init
 
             contact_local = contact_global - rotation_global
             # NOTE we cannot calculate new_contact local like this. The correct way to do it is
@@ -290,16 +305,20 @@ class Gear:
             if i != 0:
                 r = mi.g.radius_vs_theta(contact_local)
                 dist = ((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5
-                if mi.outer:
+                if mi.new_outer:
                     new_r = dist + r
 
                 else:
                     new_r = dist - r
 
+                if mi.outer:
+                    assert False
+
                 # NOTE I think technically this mod could hide a bug ... but I think your settings
                 #  would have to be super wrong for the gear to try moving more than .5 in one step
                 d_contact_local = (contact_local_prev - contact_local + 0.5) % 1.0 - 0.5
-                d_new_contact_local = d_contact_local * r / new_r
+                new_contact_ratio_flip = -1 if mi.new_outer else 1
+                d_new_contact_local = d_contact_local * r / new_r * new_contact_ratio_flip
                 new_contact_local += d_new_contact_local
                 new_rotation_global = new_contact_global - new_contact_local
 
@@ -309,8 +328,11 @@ class Gear:
 
             contact_local_prev = contact_local
 
-        new_radius_vs_theta = interp(new_contacts_local, new_rs, 1)
-        new_rotation_schedule = interp(ts, new_rotations_global, period=1, period_y=1)
+        new_radius_vs_theta = interp(new_contacts_local, new_rs, 1/mi.new_num_rotations)
+
+        # TODO the period_y here should be 1/new_num_rotations, or even better, the
+        #  period should be new_num_rotations but we have to duplicate the arrays accordingly
+        new_rotation_schedule = interp(ts, new_rotations_global, period=1, period_y=1/mi.new_num_rotations)
 
         res = MeshingResult(new_contact_local, new_radius_vs_theta, new_rotation_schedule, mi.new_center_schedule)
         return res
