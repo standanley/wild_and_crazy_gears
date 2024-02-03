@@ -251,15 +251,20 @@ class Gear:
     def get_meshing_gear_simple(self):
 
         def get_mi(R):
-            new_g_center = np.array([R, 0])
-            new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
+            #new_g_center = np.array([R, 0])
+            #new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
+
+
+            new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
+            new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
+
             return MeshingInfo(self, new_center_schedule,
                                new_num_rotations=1, num_rotations=3,
                                new_outer=False,
-                               outer=True)
+                               outer=False)
 
         # binary search parameters are annoying to keep changing
-        res = self.get_meshing_gear(get_mi, 1, 2)
+        res = self.get_meshing_gear(get_mi, 3, 10)
         new_g = Gear(res.new_radius_vs_theta, res.new_rotation_schedule, res.new_center_schedule)
         return new_g
 
@@ -274,9 +279,9 @@ class Gear:
             res = cls.get_meshing_gear_attempt(mi)
             return res.new_contact_local
 
-        param_opt = binary_search(fun, param_min, param_max, target, visualize=False)
+        param_opt = binary_search(fun, param_min, param_max, target, visualize=True)
         global DEBUG
-        #DEBUG = True
+        DEBUG = True
         res = cls.get_meshing_gear_attempt(get_mi(param_opt))
 
         # TODO I think I don't need this block anymore because it's taken care of
@@ -303,12 +308,16 @@ class Gear:
         N = mi.g.N
         # first, get ts such that they run through the right amount of g's rotation schedule
         nr = mi.num_rotations
-        if nr == 1:
-            t_max = 1
-        else:
-            # if max guess is too close to 1 (relative to g.N) then I think we might have issues
-            MAX_GUESS = 0.9
-            t_max = binary_search_core(mi.g.rotation_schedule, 1/nr, 0, 0.9, 50)
+        #if nr == 1:
+        #    t_max = 1
+        #else:
+        #    # if max guess is too close to 1 (relative to g.N) then I think we might have issues
+        #    MAX_GUESS = 0.9
+        #    t_max = binary_search_core(mi.g.rotation_schedule, 1/nr, 0, 0.9, 50)
+        # TODO I think we need to search for this end point as we go. Rotation schedule is no good because sometimes
+        #  movement is caused by the center_schedule, and I'm also not sure rotation schedule is good if this gear
+        #  is the result of other weird stuff. I think this will work for now, though
+        t_max = 1/nr
 
         ts = np.linspace(0, t_max, mi.g.N, endpoint=False)
 
@@ -395,8 +404,8 @@ class Gear:
 
 #r_vs_t = lambda t: np.cos(t * TAU) + 2
 def r_vs_t(t):
-    A = 0.1
-    B = 0.2
+    A = 0.2
+    B = 0.6
     C = 2.0
     D = 3.0
     t = 3*(t%(1/3))
@@ -406,17 +415,23 @@ def r_vs_t(t):
         return C + (D - C) / (B-A) * (t-A)
     else:
         return D
+
 r_vs_t = np.vectorize(r_vs_t)
-g = Gear(r_vs_t)
+
+def g_rotation_schedule(t):
+    return 0
+g_rotation_schedule = np.vectorize(g_rotation_schedule, signature='()->()')
+
+g = Gear(r_vs_t, rotation_schedule=g_rotation_schedule)
 #g.animate()
 #exit()
 
 match = g.get_meshing_gear_simple()
 
-#ts = np.linspace(-1.5, 2.5, 5000)
-#rotations = match.rotation_schedule(ts)
-#plt.plot(ts, rotations, '*')
-#plt.show()
+ts = np.linspace(-1.5, 2.5, 5000)
+rotations = match.rotation_schedule(ts)
+plt.plot(ts, rotations, '*')
+plt.show()
 
 #match.animate()
 Gear.animate([g, match])
