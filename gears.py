@@ -5,6 +5,39 @@ from functools import partial
 
 TAU = 2 * np.pi
 
+# add functionality for period_y for cases where y wraps, such as wheel rotation as a function of time
+def interp(xs, ys, period, period_y=None):
+    xs = np.array(xs)
+    ys = np.array(ys)
+    if period_y is None:
+        xs_new = xs
+        ys_new = ys
+    else:
+        xs_new = np.append(xs, xs[0]+period)
+        ys_new = np.append(ys, ys[0]+period_y)
+
+    diffs = np.diff(xs_new)
+    assert all(diffs >= 0) or all(diffs <= 0)
+
+    return lambda x: np.interp(x, xs_new, ys_new, period=period)
+
+
+
+
+
+def binary_search_core(fun, target, a, b, N):
+    # assumes fun is increasing
+    if N == 0:
+        return a
+
+    c = (a + b) / 2
+    res = fun(c)
+    if res < target:
+        return binary_search_core(fun, target, c, b, N - 1)
+    else:
+        return binary_search_core(fun, target, a, c, N - 1)
+
+
 def binary_search(fun, minimum, maximum, target, N=20, visualize=False):
     if visualize:
         M = 100
@@ -33,20 +66,30 @@ def binary_search(fun, minimum, maximum, target, N=20, visualize=False):
     if not (rmin <= target <= rmax):
         raise ValueError('You need to change your bounds on this binary search')
 
-
-    def binary_search_core(fun, target, a, b, N):
-        if N == 0:
-            return a
-
-        c = (a+b)/2
-        res = fun(c)
-        if res < target:
-            return binary_search_core(fun, target, c, b, N-1)
-        else:
-            return binary_search_core(fun, target, a, c, N-1)
-
     x = binary_search_core(fun2, target, minimum, maximum, N)
     return x
+
+
+
+class MeshingInfo:
+    def __init__(self, g, new_center_schedule=None, num_rotations=1, new_num_rotations=1, outer=False, new_outer=False):
+        self.g = g
+        self.new_center_schedule = new_center_schedule
+        self.num_rotations = num_rotations
+        self.new_num_rotations = new_num_rotations
+        self.outer = outer
+        self.new_outer = new_outer
+
+
+
+class MeshingResult:
+    def __init__(self, new_contact_local, new_radius_vs_theta, new_rotation_schedule, new_center_schedule):
+        self.new_contact_local = new_contact_local
+        self.new_radius_vs_theta = new_radius_vs_theta
+        self.new_rotation_schedule = new_rotation_schedule
+        self.new_center_schedule = new_center_schedule
+
+
 
 class Gear:
     def __init__(self, radius_vs_theta, rotation_schedule=None, center_schedule=None):
@@ -74,7 +117,7 @@ class Gear:
             length += dl
         lengths.append(length)
         self.total_length = length
-        self.theta_vs_length = lambda length: np.interp(length, lengths, thetas, period=self.total_length)
+        self.theta_vs_length = interp(lengths, thetas, period=self.total_length, period_y=1)
 
 
 
@@ -157,45 +200,54 @@ class Gear:
                             blit=True, interval=33)
         plt.show()
 
-    def get_meshing_gear(self):
-        assert self.radius_vs_theta is not None
-        ts = np.linspace(0, 1, self.N, endpoint=False)
-        rotations = self.rotation_schedule(ts)
-        centers = self.center_schedule(ts)
+    def get_meshing_gear_simple(self):
 
-
-        def function(R):
+        def get_mi(R):
             new_g_center = np.array([R, 0])
             new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
-            #new_centers = np.array([[R, 0]]*self.N)
-            new_centers = new_center_schedule(ts)
+            return MeshingInfo(self, new_center_schedule)
 
-            return self.get_meshing_gear_attempt(ts, rotations, centers, new_centers)
+        res = self.get_meshing_gear(get_mi, 3.5, 8)
+        new_g = Gear(res.new_radius_vs_theta, res.new_rotation_schedule, res.new_center_schedule)
+        return new_g
 
-        def fun(R):
-            res, _ =  function(R)
-            return res
+    @classmethod
+    def get_meshing_gear(cls, get_mi, param_min, param_max):
+        mi_min, mi_max = get_mi(param_min), get_mi(param_max)
+        target = 1 / mi_min.new_num_rotations
+
+        def fun(param):
+            mi = get_mi(param)
+            res = cls.get_meshing_gear_attempt(mi)
+            return res.new_contact_local
+
+        param_opt = binary_search(fun, param_min, param_max, target)
+        return cls.get_meshing_gear_attempt(get_mi(param_opt))
 
 
-        R = binary_search(fun, 3.5, 8, 1, visualize=True)
-
-        new_g_center = np.array([R, 0])
-        new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
-        new_contact_local, (new_radius_vs_theta, new_rotation_schedule) = function(R)
-        print(new_contact_local)
-
-        g = Gear(new_radius_vs_theta, new_rotation_schedule, new_center_schedule)
-        return g
-
-    def get_meshing_gear_attempt(self, ts, rotations_global, centers, new_centers, outer=False, new_outer=False):
+    @classmethod
+    def get_meshing_gear_attempt(cls, mi):
         # imagine a line through both gear centers.
         # The contact point could be in between them: outer=False, new_outer=False,
         # it could be on the other side of new's center far from self: outer=True, new_outer=False
         # it could be on the other side of self's center far from new: outer=False, new_outer=True
-        assert not (outer and new_outer)
-        N = len(rotations_global)
-        assert len(centers) == N
-        assert len(new_centers) == N
+        assert not (mi.outer and mi.new_outer)
+
+        N = mi.g.N
+        # first, get ts such that they run through the right amount of g's rotation schedule
+        nr = mi.num_rotations
+        if nr == 1:
+            t_max = 1
+        else:
+            # if max guess is too close to 1 (relative to g.N) then I think we might have issues
+            MAX_GUESS = 0.9
+            t_max = binary_search_core(mi.g.rotation_schedule, 1/nr, 0, 0.9, 50)
+
+        ts = np.linspace(0, t_max, mi.g.N, endpoint=False)
+
+        rotations_global = mi.g.rotation_schedule(ts)
+        centers = mi.g.center_schedule(ts)
+        new_centers = mi.new_center_schedule(ts)
 
         # rotation holds the rotation of the self gear in a global context
         # contact_global holds the angle at which the new contacts self in a global context
@@ -218,11 +270,11 @@ class Gear:
             # NOTE it would be okay to wiggle contact-global a bit, but I will leave it here
             # contact_global is the angle of the ray from self center to contact point
             contact_global_init = np.arctan2(y1-y0, x1-x0) / TAU
-            if outer:
+            if mi.outer:
                 contact_global = contact_global_init + 0.5
             else:
                 contact_global = contact_global_init
-            if new_outer:
+            if mi.new_outer:
                 new_contact_global = contact_global_init
             else:
                 new_contact_global = contact_global_init + 0.5
@@ -236,9 +288,9 @@ class Gear:
 
             # we really just need contact_local_prev in order to do this block
             if i != 0:
-                r = self.radius_vs_theta(contact_local)
+                r = mi.g.radius_vs_theta(contact_local)
                 dist = ((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5
-                if outer:
+                if mi.outer:
                     new_r = dist + r
 
                 else:
@@ -257,10 +309,11 @@ class Gear:
 
             contact_local_prev = contact_local
 
-        new_radius_vs_theta = lambda theta: np.interp(theta, new_contacts_local, new_rs, period=1)
-        new_rotation_schedule = lambda t: np.interp(t, ts, new_rotations_global, period=1)
+        new_radius_vs_theta = interp(new_contacts_local, new_rs, 1)
+        new_rotation_schedule = interp(ts, new_rotations_global, period=1, period_y=1)
 
-        return new_contact_local, (new_radius_vs_theta, new_rotation_schedule)
+        res = MeshingResult(new_contact_local, new_radius_vs_theta, new_rotation_schedule, mi.new_center_schedule)
+        return res
 
 
 
@@ -280,6 +333,6 @@ g = Gear(r_vs_t)
 #g.animate()
 #exit()
 
-match = g.get_meshing_gear()
+match = g.get_meshing_gear_simple()
 #match.animate()
 Gear.animate([g, match])
