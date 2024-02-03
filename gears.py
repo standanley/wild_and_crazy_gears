@@ -9,6 +9,7 @@ DEBUG = False
 # add functionality for period_y for cases where y wraps, such as wheel rotation as a function of time
 def interp(xs, ys, period, period_y=None):
     expected_period = abs(xs[-1] - xs[0])
+    period = abs(period)
     if expected_period > period:
         raise ValueError('something else weird in interp')
     xs = np.array(xs)
@@ -28,7 +29,7 @@ def interp(xs, ys, period, period_y=None):
             period_y_temp = -1 * period_y
         else:
             period_y_temp = period_y
-        if xs[0] + period_temp > xs[-1]:
+        if (xs[0] + period_temp > xs[-1]) != (xs[0] > xs[-1]):
             xs_new = np.append(xs, xs[0]+period_temp)
             ys_new = np.append(ys, ys[0]+period_y_temp)
         else:
@@ -40,10 +41,10 @@ def interp(xs, ys, period, period_y=None):
         raise ValueError('something weird in interp')
 
 
-    if period == 1/2 and DEBUG:
+    if DEBUG:
         #xs_new[-1] -= 1e-6
         temp = lambda x: np.interp(x, xs_new, ys_new, period=period)
-        xs_fake = np.linspace(0.49, 0.51, 30000)
+        xs_fake = np.linspace(-0.1, 0.4, 30000)
         ys_fake = temp(xs_fake)
         plt.plot(xs_fake, ys_fake, '*')
         plt.plot(xs_new, ys_new, '+')
@@ -150,9 +151,12 @@ class Gear:
             lengths.append(length)
             dl = rs[i] * (thetas[i+1]-thetas[i]) * TAU
             length += dl
-        lengths.append(length)
+
+        # I used to put an extra point here at the end so it matches the beginning exactly,
+        # but now I let interp() handle that because of its EPS handling
+        #lengths.append(length)
         self.total_length = length
-        self.theta_vs_length = interp(lengths, thetas, period=self.total_length, period_y=1)
+        self.theta_vs_length = interp(lengths, thetas[:-1], period=self.total_length, period_y=1)
 
 
 
@@ -202,7 +206,7 @@ class Gear:
         curve, = ax.plot([0, 5], [0, 5])
         spokes, = ax.plot([0, 3], [0, 3])
         ax.plot([0], [0], 'x')
-        SIZE = 9
+        SIZE = 4
         ax.set_xlim([-SIZE, SIZE])
         ax.set_ylim([-SIZE, SIZE])
         def update(frame_time):
@@ -241,12 +245,12 @@ class Gear:
             new_g_center = np.array([R, 0])
             new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
             return MeshingInfo(self, new_center_schedule,
-                               new_num_rotations=1, num_rotations=2,
-                               new_outer=False)
+                               new_num_rotations=1, num_rotations=3,
+                               new_outer=False,
+                               outer=True)
 
         # binary search parameters are annoying to keep changing
-        res = self.get_meshing_gear(get_mi, 2.41212, 2.5)
-        #res = self.get_meshing_gear(get_mi, 4.166, 4.168)
+        res = self.get_meshing_gear(get_mi, 0.8, 0.81394)
         new_g = Gear(res.new_radius_vs_theta, res.new_rotation_schedule, res.new_center_schedule)
         return new_g
 
@@ -261,7 +265,7 @@ class Gear:
             res = cls.get_meshing_gear_attempt(mi)
             return res.new_contact_local
 
-        param_opt = binary_search(fun, param_min, param_max, target, visualize=False)
+        param_opt = binary_search(fun, param_min, param_max, target, visualize=True)
         global DEBUG
         #DEBUG = True
         res = cls.get_meshing_gear_attempt(get_mi(param_opt))
@@ -346,19 +350,17 @@ class Gear:
                 dist = ((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5
                 if mi.new_outer:
                     new_r = dist + r
-
+                elif mi.outer:
+                    new_r = r - dist
                 else:
                     new_r = dist - r
 
-
-                if mi.outer:
-                    assert False
 
                 # NOTE I think technically this mod could hide a bug ... but I think your settings
                 #  would have to be super wrong for the gear to try moving more than .5 in one step
                 period = 1/mi.num_rotations
                 d_contact_local = (contact_local_prev - contact_local + (period/2)) % period - (period/2)
-                new_contact_ratio_flip = -1 if mi.new_outer else 1
+                new_contact_ratio_flip = -1 if mi.new_outer ^ mi.outer else 1
                 d_new_contact_local = d_contact_local * r / new_r * new_contact_ratio_flip
                 new_contact_local += d_new_contact_local
                 new_rotation_global = new_contact_global - new_contact_local
@@ -385,7 +387,7 @@ class Gear:
 
 #r_vs_t = lambda t: np.cos(t * TAU) + 2
 def r_vs_t(t):
-    t = 2*(t%0.5)
+    t = 3*(t%(1/3))
     if t < 0.2:
         return 1.0
     elif t < 0.9:
