@@ -272,14 +272,14 @@ class Gear:
     def get_meshing_gear(cls, get_mi, param_min, param_max):
         mi_min, mi_max = get_mi(param_min), get_mi(param_max)
         target_flip = -1 if mi_min.outer ^ mi_min.new_outer else 1
-        target = 1 / mi_min.new_num_rotations * target_flip
+        target = 1 / mi_min.new_num_rotations * mi_min.num_rotations * target_flip
 
         def fun(param):
             mi = get_mi(param)
             res = cls.get_meshing_gear_attempt(mi)
             return res.new_contact_local
 
-        param_opt = binary_search(fun, param_min, param_max, target, visualize=True)
+        param_opt = binary_search(fun, param_min, param_max, target, visualize=False)
         global DEBUG
         DEBUG = True
         res = cls.get_meshing_gear_attempt(get_mi(param_opt))
@@ -304,6 +304,7 @@ class Gear:
         # it could be on the other side of new's center far from self: outer=True, new_outer=False
         # it could be on the other side of self's center far from new: outer=False, new_outer=True
         assert not (mi.outer and mi.new_outer)
+        r_finished = False
 
         N = mi.g.N
         # first, get ts such that they run through the right amount of g's rotation schedule
@@ -317,7 +318,9 @@ class Gear:
         # TODO I think we need to search for this end point as we go. Rotation schedule is no good because sometimes
         #  movement is caused by the center_schedule, and I'm also not sure rotation schedule is good if this gear
         #  is the result of other weird stuff. I think this will work for now, though
-        t_max = 1/nr
+        #  UPDATE: I think it's no good because we need to finish the whole cycle to get all the schedules
+        #t_max = 1/nr
+        t_max = 1
 
         ts = np.linspace(0, t_max, mi.g.N, endpoint=False)
 
@@ -384,8 +387,10 @@ class Gear:
                 new_rotation_global = new_contact_global - new_contact_local
 
                 new_rotations_global.append(new_rotation_global)
-                new_contacts_local.append(new_contact_local)
-                new_rs.append(new_r)
+
+                if not r_finished:
+                    new_contacts_local.append(new_contact_local)
+                    new_rs.append(new_r)
 
             contact_local_prev = contact_local
 
@@ -394,7 +399,7 @@ class Gear:
         # TODO the period_y here should be 1/new_num_rotations, or even better, the
         #  period should be new_num_rotations but we have to duplicate the arrays accordingly
         # keep in mind that the time will end at 1/num_rotations, and we should have gotten through
-        new_rotation_schedule = interp(ts, new_rotations_global, period=1/mi.num_rotations, period_y=1/mi.new_num_rotations)
+        new_rotation_schedule = interp(ts, new_rotations_global, period=1, period_y=1/mi.new_num_rotations)
 
         res = MeshingResult(new_contact_local, new_radius_vs_theta, new_rotation_schedule, mi.new_center_schedule)
         return res
