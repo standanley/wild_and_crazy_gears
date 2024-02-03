@@ -10,8 +10,8 @@ DEBUG = False
 def interp(xs, ys, period, period_y=None):
     expected_period = abs(xs[-1] - xs[0])
     period = abs(period)
-    if expected_period > period:
-        raise ValueError('something else weird in interp')
+    #if expected_period > period:
+    #    raise ValueError('something else weird in interp')
     xs = np.array(xs)
     ys = np.array(ys)
     if period_y is None:
@@ -62,7 +62,10 @@ def binary_search_core(fun, target, a, b, N):
         return a
 
     c = (a + b) / 2
-    res = fun(c)
+    try:
+        res = fun(c)
+    except ValueError:
+        res = target * float('inf')
     if res < target:
         return binary_search_core(fun, target, c, b, N - 1)
     else:
@@ -84,8 +87,14 @@ def binary_search(fun, minimum, maximum, target, N=20, visualize=False):
         plt.plot(xs, results, '*')
         plt.show()
 
-    rmin = fun(minimum)
-    rmax = fun(maximum)
+    try:
+        rmin = fun(minimum)
+    except ValueError:
+        rmin = target * float('inf')
+    try:
+        rmax = fun(maximum)
+    except ValueError:
+        rmax = target * float('inf')
 
     if rmin > rmax:
         # this is so ugly
@@ -250,7 +259,7 @@ class Gear:
                                outer=True)
 
         # binary search parameters are annoying to keep changing
-        res = self.get_meshing_gear(get_mi, 0.8, 0.81394)
+        res = self.get_meshing_gear(get_mi, 1, 2)
         new_g = Gear(res.new_radius_vs_theta, res.new_rotation_schedule, res.new_center_schedule)
         return new_g
 
@@ -265,7 +274,7 @@ class Gear:
             res = cls.get_meshing_gear_attempt(mi)
             return res.new_contact_local
 
-        param_opt = binary_search(fun, param_min, param_max, target, visualize=True)
+        param_opt = binary_search(fun, param_min, param_max, target, visualize=False)
         global DEBUG
         #DEBUG = True
         res = cls.get_meshing_gear_attempt(get_mi(param_opt))
@@ -384,16 +393,19 @@ class Gear:
 
 
 
-
 #r_vs_t = lambda t: np.cos(t * TAU) + 2
 def r_vs_t(t):
+    A = 0.1
+    B = 0.2
+    C = 2.0
+    D = 3.0
     t = 3*(t%(1/3))
-    if t < 0.2:
-        return 1.0
-    elif t < 0.9:
-        return 1.0 + (2 - 1) / (.9-.2) * (t-.2)
+    if t < A:
+        return C
+    elif t < B:
+        return C + (D - C) / (B-A) * (t-A)
     else:
-        return 2.0
+        return D
 r_vs_t = np.vectorize(r_vs_t)
 g = Gear(r_vs_t)
 #g.animate()
