@@ -4,20 +4,50 @@ from matplotlib.animation import FuncAnimation
 from functools import partial
 
 TAU = 2 * np.pi
+DEBUG = False
 
 # add functionality for period_y for cases where y wraps, such as wheel rotation as a function of time
 def interp(xs, ys, period, period_y=None):
+    expected_period = abs(xs[-1] - xs[0])
+    if expected_period > period:
+        raise ValueError('something else weird in interp')
     xs = np.array(xs)
     ys = np.array(ys)
     if period_y is None:
         xs_new = xs
         ys_new = ys
     else:
-        xs_new = np.append(xs, xs[0]+period)
-        ys_new = np.append(ys, ys[0]+period_y)
+        # I wish I didn't need to bump the period by EPS, but np.interp does weird
+        # things when I don't
+        EPS = 1e-10
+        if xs[0] > xs[-1]:
+            period_temp = -1 * (period-EPS)
+        else:
+            period_temp = period - EPS
+        if ys[0] > ys[-1]:
+            period_y_temp = -1 * period_y
+        else:
+            period_y_temp = period_y
+        if xs[0] + period_temp > xs[-1]:
+            xs_new = np.append(xs, xs[0]+period_temp)
+            ys_new = np.append(ys, ys[0]+period_y_temp)
+        else:
+            xs_new = xs
+            ys_new = ys
 
     diffs = np.diff(xs_new)
-    assert all(diffs >= 0) or all(diffs <= 0)
+    if not (all(diffs >= 0) or all(diffs <= 0)):
+        raise ValueError('something weird in interp')
+
+
+    if period == 1/2 and DEBUG:
+        #xs_new[-1] -= 1e-6
+        temp = lambda x: np.interp(x, xs_new, ys_new, period=period)
+        xs_fake = np.linspace(0.49, 0.51, 30000)
+        ys_fake = temp(xs_fake)
+        plt.plot(xs_fake, ys_fake, '*')
+        plt.plot(xs_new, ys_new, '+')
+        plt.show()
 
     return lambda x: np.interp(x, xs_new, ys_new, period=period)
 
@@ -44,7 +74,10 @@ def binary_search(fun, minimum, maximum, target, N=20, visualize=False):
         xs = np.linspace(minimum, maximum, M)
         results = []
         for i in range(M):
-            result = fun(xs[i])
+            try:
+                result = fun(xs[i])
+            except ValueError:
+                result = 0
             results.append(result)
         plt.figure()
         plt.plot(xs, results, '*')
@@ -64,7 +97,7 @@ def binary_search(fun, minimum, maximum, target, N=20, visualize=False):
         fun2 = fun
 
     if not (rmin <= target <= rmax):
-        raise ValueError('You need to change your bounds on this binary search')
+        raise ValueError('You need to change your bounds on this search')
 
     x = binary_search_core(fun2, target, minimum, maximum, N)
     print('winning parameter', x)
@@ -107,6 +140,7 @@ class Gear:
             self.center_schedule = center_schedule
 
         self.N = 1024
+        #self.N = 96
 
         thetas = np.linspace(0, 1, self.N+1)
         rs = self.radius_vs_theta(thetas)
@@ -206,9 +240,12 @@ class Gear:
         def get_mi(R):
             new_g_center = np.array([R, 0])
             new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
-            return MeshingInfo(self, new_center_schedule, new_num_rotations=2, new_outer=False)
+            return MeshingInfo(self, new_center_schedule,
+                               new_num_rotations=1, num_rotations=2,
+                               new_outer=False)
 
-        res = self.get_meshing_gear(get_mi, 3.5, 10)
+        # binary search parameters are annoying to keep changing
+        res = self.get_meshing_gear(get_mi, 2.41212, 2.5)
         #res = self.get_meshing_gear(get_mi, 4.166, 4.168)
         new_g = Gear(res.new_radius_vs_theta, res.new_rotation_schedule, res.new_center_schedule)
         return new_g
@@ -225,6 +262,8 @@ class Gear:
             return res.new_contact_local
 
         param_opt = binary_search(fun, param_min, param_max, target, visualize=False)
+        global DEBUG
+        #DEBUG = True
         res = cls.get_meshing_gear_attempt(get_mi(param_opt))
 
         # TODO I think I don't need this block anymore because it's taken care of
@@ -311,12 +350,14 @@ class Gear:
                 else:
                     new_r = dist - r
 
+
                 if mi.outer:
                     assert False
 
                 # NOTE I think technically this mod could hide a bug ... but I think your settings
                 #  would have to be super wrong for the gear to try moving more than .5 in one step
-                d_contact_local = (contact_local_prev - contact_local + 0.5) % 1.0 - 0.5
+                period = 1/mi.num_rotations
+                d_contact_local = (contact_local_prev - contact_local + (period/2)) % period - (period/2)
                 new_contact_ratio_flip = -1 if mi.new_outer else 1
                 d_new_contact_local = d_contact_local * r / new_r * new_contact_ratio_flip
                 new_contact_local += d_new_contact_local
@@ -332,7 +373,8 @@ class Gear:
 
         # TODO the period_y here should be 1/new_num_rotations, or even better, the
         #  period should be new_num_rotations but we have to duplicate the arrays accordingly
-        new_rotation_schedule = interp(ts, new_rotations_global, period=1, period_y=1/mi.new_num_rotations)
+        # keep in mind that the time will end at 1/num_rotations, and we should have gotten through
+        new_rotation_schedule = interp(ts, new_rotations_global, period=1/mi.num_rotations, period_y=1/mi.new_num_rotations)
 
         res = MeshingResult(new_contact_local, new_radius_vs_theta, new_rotation_schedule, mi.new_center_schedule)
         return res
@@ -343,18 +385,24 @@ class Gear:
 
 #r_vs_t = lambda t: np.cos(t * TAU) + 2
 def r_vs_t(t):
-    t = t%1
+    t = 2*(t%0.5)
     if t < 0.2:
         return 1.0
-    elif t < 0.6:
-        return 1.0 + (3 - 1) / (.6-.2) * (t-.2)
+    elif t < 0.9:
+        return 1.0 + (2 - 1) / (.9-.2) * (t-.2)
     else:
-        return 3.0
+        return 2.0
 r_vs_t = np.vectorize(r_vs_t)
 g = Gear(r_vs_t)
 #g.animate()
 #exit()
 
 match = g.get_meshing_gear_simple()
+
+#ts = np.linspace(-1.5, 2.5, 5000)
+#rotations = match.rotation_schedule(ts)
+#plt.plot(ts, rotations, '*')
+#plt.show()
+
 #match.animate()
 Gear.animate([g, match])
