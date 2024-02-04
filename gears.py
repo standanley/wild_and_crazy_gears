@@ -94,6 +94,7 @@ def binary_search_core(fun, target, a, b, N):
 
 def binary_search(fun, minimum, maximum, target, N=20, visualize=True):
     if visualize:
+        print('target is', target)
         M = 100
         xs = np.linspace(minimum, maximum, M)
         results = []
@@ -172,8 +173,8 @@ class Gear:
         else:
             self.center_schedule = center_schedule
 
-        self.N = 5000
-        #self.N = 96
+        #self.N = 5000
+        self.N = 1000
 
         thetas = np.linspace(0, 1, self.N+1)
         rs = self.radius_vs_theta(thetas)
@@ -245,7 +246,7 @@ class Gear:
 
     def set_up_animation(self, ax):
         curve, = ax.plot([0, 5], [0, 5])
-        #spokes, = ax.plot([0, 3], [0, 3])
+        spokes, = ax.plot([0, 3], [0, 3])
         ax.plot([0], [0], 'x')
         SIZE = 4
         ax.set_xlim([-SIZE, SIZE])
@@ -254,8 +255,8 @@ class Gear:
             xs, ys = self.get_curve_points(frame_time)
             curve.set_data(xs, ys)
             xs_s, ys_s = self.get_spoke_points(frame_time)
-            #spokes.set_data(xs_s, ys_s)
-            return [curve]#, spokes]
+            spokes.set_data(xs_s, ys_s)
+            return [curve, spokes]
         return update
 
 
@@ -292,7 +293,7 @@ class Gear:
             res = cls.get_meshing_gear_attempt(mi)
             return res.new_contact_local
 
-        param_opt = binary_search(fun, param_min, param_max, target, visualize=False)
+        param_opt = binary_search(fun, param_min, param_max, target, visualize=True)
         global DEBUG
         #DEBUG = True
         res = cls.get_meshing_gear_attempt(get_mi(param_opt))
@@ -427,7 +428,7 @@ class Gear:
 ############## RING GEAR ##############
 
 #r_vs_t = lambda t: np.cos(t * TAU) + 2
-def r_vs_t(t):
+def r_vs_t_old(t):
     A = 0.2
     B = 0.6
     C = 2.0
@@ -440,6 +441,14 @@ def r_vs_t(t):
         return C + (D - C) / (B-A) * (t-A)
     else:
         return D
+
+def r_vs_t(t):
+    N = 4
+    A = -0.4
+    B = 0.1
+    t = N*(t%(1/N))
+    wave = np.sin(t*TAU) + A*np.sin(2*t*TAU-0.8) + B*np.sin(3*t*TAU)
+    return wave/2+3
 
 r_vs_t = np.vectorize(r_vs_t)
 
@@ -466,12 +475,12 @@ def get_mi_planet(R):
                        outer=True)
 
 # binary search parameters are annoying to keep changing
-#res = ring.get_meshing_gear(get_mi_planet, 0.1, 1.99)
-#res = ring.get_meshing_gear(get_mi_planet, 1.6, 1.9)
-res = ring.get_meshing_gear_attempt(get_mi_planet(1.7409096717834474))
+res = ring.get_meshing_gear(get_mi_planet, 0.1, 2.36)
+#res = ring.get_meshing_gear_attempt(get_mi_planet(1.7409096717834474))
 planet = res.get_gear()
 
 
+Gear.animate([ring, planet])
 
 ############# SUN GEAR #################
 
@@ -487,11 +496,14 @@ def get_mi_sun(R):
                        new_outer=False,
                        outer=False)
 
-#res_sun = planet.get_meshing_gear(get_mi_sun, -1, 1)
-#res_sun = planet.get_meshing_gear(get_mi_sun, -0.1, 0.1)
+res_sun = planet.get_meshing_gear(get_mi_sun, -1.0, 0.3)
 #res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0.012523651123046875))
-res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0.011253166198730472))
+#res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0.011253166198730472))
 sun = res_sun.get_gear()
+
+
+Gear.animate([ring, planet, sun])
+exit()
 
 ############ PLANET GEAR B #################
 
@@ -531,8 +543,8 @@ def get_mi_planetB(R):
 
 # binary search parameters are annoying to keep changing
 #res_planetB = ring.get_meshing_gear(get_mi_planetB, 0.1, 1.99)
-#res_planetB = ring.get_meshing_gear(get_mi_planetB, 1.7, 1.8)
-res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(1.74122953414917))
+res_planetB = ring.get_meshing_gear(get_mi_planetB, 1.7, 1.8)
+#res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(1.74122953414917))
 planetB = res_planetB.get_gear()
 
 
@@ -549,8 +561,8 @@ def get_mi_sunB(R):
                        new_outer=False,
                        outer=False)
 
-#res_sunB = planetB.get_meshing_gear(get_mi_sunB, -0.1, 0.1)
-res_sunB = planetB.get_meshing_gear_attempt(get_mi_sunB(0.013304328918457033))
+res_sunB = planetB.get_meshing_gear(get_mi_sunB, -0.1, 0.1)
+#res_sunB = planetB.get_meshing_gear_attempt(get_mi_sunB(0.013304328918457033))
 sunB = res_sunB.get_gear()
 
 
