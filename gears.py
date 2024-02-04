@@ -209,6 +209,7 @@ class Gear:
 
     def get_curve_points(self, time=0):
         thetas = np.arange(0, 1, 1/self.N)
+        thetas = np.append(thetas, thetas[0])
         rs = self.radius_vs_theta(thetas)
         rotation = self.rotation_schedule(time)
         center = self.center_schedule(time)
