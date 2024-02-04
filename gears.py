@@ -400,6 +400,11 @@ class Gear:
 
                 new_rotations_global.append(new_rotation_global)
 
+                # when new gear is created from an old gear with multiple repetitions we do not want the new
+                # gears radius to be formed from copies of each time around the old gear, so we end early
+                if len(new_contacts_local) > 0 and abs(new_contact_local - new_contacts_local[0]) > 1:
+                    r_finished = True
+
                 if not r_finished:
                     new_contacts_local.append(new_contact_local)
                     new_rs.append(new_r)
