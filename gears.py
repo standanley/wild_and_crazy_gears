@@ -133,6 +133,9 @@ class MeshingResult:
         self.new_rotation_schedule = new_rotation_schedule
         self.new_center_schedule = new_center_schedule
 
+    def get_gear(self):
+        return Gear(self.new_radius_vs_theta, self.new_rotation_schedule, self.new_center_schedule)
+
 
 
 class Gear:
@@ -149,8 +152,8 @@ class Gear:
         else:
             self.center_schedule = center_schedule
 
-        #self.N = 1024
-        self.N = 96
+        self.N = 1024
+        #self.N = 96
 
         thetas = np.linspace(0, 1, self.N+1)
         rs = self.radius_vs_theta(thetas)
@@ -248,25 +251,6 @@ class Gear:
                             blit=True, interval=33)
         plt.show()
 
-    def get_meshing_gear_simple(self):
-
-        def get_mi(R):
-            new_g_center = np.array([R, 0])
-            new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
-
-
-            #new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
-            #new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
-
-            return MeshingInfo(self, new_center_schedule,
-                               new_num_rotations=2, num_rotations=1,
-                               new_outer=True,
-                               outer=False)
-
-        # binary search parameters are annoying to keep changing
-        res = self.get_meshing_gear(get_mi, 2, 10)
-        new_g = Gear(res.new_radius_vs_theta, res.new_rotation_schedule, res.new_center_schedule)
-        return new_g
 
     @classmethod
     def get_meshing_gear(cls, get_mi, param_min, param_max):
@@ -279,7 +263,7 @@ class Gear:
             res = cls.get_meshing_gear_attempt(mi)
             return res.new_contact_local
 
-        param_opt = binary_search(fun, param_min, param_max, target, visualize=True)
+        param_opt = binary_search(fun, param_min, param_max, target, visualize=False)
         global DEBUG
         #DEBUG = True
         res = cls.get_meshing_gear_attempt(get_mi(param_opt))
@@ -406,6 +390,7 @@ class Gear:
 
 
 
+############## RING GEAR ##############
 
 #r_vs_t = lambda t: np.cos(t * TAU) + 2
 def r_vs_t(t):
@@ -413,7 +398,8 @@ def r_vs_t(t):
     B = 0.6
     C = 2.0
     D = 3.0
-    t = 3*(t%(1/3))
+    N = 4
+    t = N*(t%(1/N))
     if t < A:
         return C
     elif t < B:
@@ -427,16 +413,51 @@ def g_rotation_schedule(t):
     return 0
 g_rotation_schedule = np.vectorize(g_rotation_schedule, signature='()->()')
 
-g = Gear(r_vs_t)#, rotation_schedule=g_rotation_schedule)
+ring = Gear(r_vs_t)#, rotation_schedule=g_rotation_schedule)
 #g.animate()
 #exit()
 
-match = g.get_meshing_gear_simple()
+############## PLANET GEAR ######################
+
+def get_mi_planet(R):
+    new_g_center = np.array([R, 0])
+    new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
+
+    # new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
+    # new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
+
+    return MeshingInfo(ring, new_center_schedule,
+                       new_num_rotations=1, num_rotations=4,
+                       new_outer=False,
+                       outer=True)
+
+# binary search parameters are annoying to keep changing
+res = ring.get_meshing_gear(get_mi_planet, 0.1, 1.99)
+#new_g = Gear(res.new_radius_vs_theta, res.new_rotation_schedule, res.new_center_schedule)
+planet = res.get_gear()
 
 #ts = np.linspace(-1.5, 2.5, 5000)
 #rotations = match.rotation_schedule(ts)
 #plt.plot(ts, rotations, '*')
 #plt.show()
 
-#match.animate()
-Gear.animate([g, match])
+
+############# SUN GEAR #################
+
+def get_mi_sun(R):
+    new_g_center = np.array([R, 0])
+    new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
+
+    # new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
+    # new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
+
+    return MeshingInfo(planet, new_center_schedule,
+                       new_num_rotations=1, num_rotations=4,
+                       new_outer=False,
+                       outer=False)
+
+res_sun = planet.get_meshing_gear(get_mi_sun, -4, 0.5)
+sun = res_sun.get_gear()
+
+
+Gear.animate([ring, planet, sun])
