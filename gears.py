@@ -6,6 +6,24 @@ from functools import partial
 TAU = 2 * np.pi
 DEBUG = False
 
+def get_inverse(fun, xmin, xmax, ymin, ymax, N):
+    ys = np.linspace(ymin, ymax, N, endpoint=False)
+    xs = []
+    for y in ys:
+        x = binary_search_core(fun, y, xmin, xmax, 10)
+        xs.append(x)
+    return interp(ys, xs, ymax-ymin, xmax-xmin)
+
+
+class Interp:
+    def __init__(self, xs, ys, period):
+        self.xs = xs
+        self.ys = ys
+        self.period = period
+
+    def __call__(self, x):
+        return np.interp(x, self.xs, self.ys, period=self.period)
+
 # add functionality for period_y for cases where y wraps, such as wheel rotation as a function of time
 def interp(xs, ys, period, period_y=None):
     expected_period = abs(xs[-1] - xs[0])
@@ -36,21 +54,23 @@ def interp(xs, ys, period, period_y=None):
             xs_new = xs
             ys_new = ys
 
-    diffs = np.diff(xs_new)
-    if not (all(diffs >= 0) or all(diffs <= 0)):
-        raise ValueError('something weird in interp')
-
-
     if DEBUG:
         #xs_new[-1] -= 1e-6
         temp = lambda x: np.interp(x, xs_new, ys_new, period=period)
         xs_fake = np.linspace(-0.1, 0.4, 30000)
         ys_fake = temp(xs_fake)
         plt.plot(xs_fake, ys_fake, '*')
-        plt.plot(xs_new, ys_new, '+')
+        plt.plot(xs_new, ys_new, '-')
         plt.show()
 
-    return lambda x: np.interp(x, xs_new, ys_new, period=period)
+    diffs = np.diff(xs_new)
+    if not (all(diffs >= 0) or all(diffs <= 0)):
+        raise ValueError('something weird in interp')
+
+
+
+    #return lambda x: np.interp(x, xs_new, ys_new, period=period)
+    return Interp(xs_new, ys_new, period=period)
 
 
 
@@ -72,7 +92,7 @@ def binary_search_core(fun, target, a, b, N):
         return binary_search_core(fun, target, a, c, N - 1)
 
 
-def binary_search(fun, minimum, maximum, target, N=20, visualize=False):
+def binary_search(fun, minimum, maximum, target, N=20, visualize=True):
     if visualize:
         M = 100
         xs = np.linspace(minimum, maximum, M)
@@ -170,6 +190,14 @@ class Gear:
         self.total_length = length
         self.theta_vs_length = interp(lengths, thetas[:-1], period=self.total_length, period_y=1)
 
+    def clone(self):
+        return Gear(self.radius_vs_theta, self.rotation_schedule, self.center_schedule)
+
+    def timeshift(self, dt):
+        rotation_orig = self.rotation_schedule
+        center_orig = self.center_schedule
+        self.rotation_schedule = lambda t: rotation_orig(t-dt)
+        self.center_schedule = lambda t: center_orig(t-dt)
 
 
     def plot(self):
@@ -216,17 +244,17 @@ class Gear:
 
     def set_up_animation(self, ax):
         curve, = ax.plot([0, 5], [0, 5])
-        spokes, = ax.plot([0, 3], [0, 3])
+        #spokes, = ax.plot([0, 3], [0, 3])
         ax.plot([0], [0], 'x')
-        SIZE = 7
+        SIZE = 4
         ax.set_xlim([-SIZE, SIZE])
         ax.set_ylim([-SIZE, SIZE])
         def update(frame_time):
             xs, ys = self.get_curve_points(frame_time)
             curve.set_data(xs, ys)
             xs_s, ys_s = self.get_spoke_points(frame_time)
-            spokes.set_data(xs_s, ys_s)
-            return [curve, spokes]
+            #spokes.set_data(xs_s, ys_s)
+            return [curve]#, spokes]
         return update
 
 
@@ -413,18 +441,18 @@ def g_rotation_schedule(t):
     return 0
 g_rotation_schedule = np.vectorize(g_rotation_schedule, signature='()->()')
 
-ring = Gear(r_vs_t)#, rotation_schedule=g_rotation_schedule)
+ring = Gear(r_vs_t, rotation_schedule=g_rotation_schedule)
 #g.animate()
 #exit()
 
 ############## PLANET GEAR ######################
 
 def get_mi_planet(R):
-    new_g_center = np.array([R, 0])
-    new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
+    #new_g_center = np.array([R, 0])
+    #new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
 
-    # new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
-    # new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
+    new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
+    new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
 
     return MeshingInfo(ring, new_center_schedule,
                        new_num_rotations=1, num_rotations=4,
@@ -432,32 +460,92 @@ def get_mi_planet(R):
                        outer=True)
 
 # binary search parameters are annoying to keep changing
-res = ring.get_meshing_gear(get_mi_planet, 0.1, 1.99)
-#new_g = Gear(res.new_radius_vs_theta, res.new_rotation_schedule, res.new_center_schedule)
+#res = ring.get_meshing_gear(get_mi_planet, 0.1, 1.99)
+res = ring.get_meshing_gear_attempt(get_mi_planet(1.740037002563477))
 planet = res.get_gear()
 
-#ts = np.linspace(-1.5, 2.5, 5000)
-#rotations = match.rotation_schedule(ts)
-#plt.plot(ts, rotations, '*')
-#plt.show()
 
 
 ############# SUN GEAR #################
 
 def get_mi_sun(R):
-    new_g_center = np.array([R, 0])
-    new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
+    #new_g_center = np.array([R, 0])
+    #new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
 
-    # new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
-    # new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
+    new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
+    new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
 
     return MeshingInfo(planet, new_center_schedule,
                        new_num_rotations=1, num_rotations=4,
                        new_outer=False,
                        outer=False)
 
-res_sun = planet.get_meshing_gear(get_mi_sun, -4, 0.5)
+#res_sun = planet.get_meshing_gear(get_mi_sun, -1, 1)
+res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0.012523651123046875))
 sun = res_sun.get_gear()
 
+############ PLANET GEAR B #################
 
-Gear.animate([ring, planet, sun])
+temp = lambda t: (1-sun.rotation_schedule(t))/5
+#ts = np.linspace(-1.5, 2.5, 5000)
+#rotations = temp(ts)
+#plt.plot(ts, rotations, '*')
+#plt.show()
+
+EPS = 0
+#sun_rotation_inverse = get_inverse(temp, EPS, 1-EPS, 0, 1, sun.N)
+new_ys = (1-sun.rotation_schedule.ys) / 5
+#DEBUG=True
+sun_rotation_inverse = interp(new_ys[:-2], sun.rotation_schedule.xs[:-2], 1, period_y=1)
+
+ts = np.linspace(-1.5, 2.5, 5000)
+rotations = sun_rotation_inverse(ts)
+plt.plot(ts, rotations, '*')
+plt.show()
+
+
+def get_mi_planetB(R):
+    #new_g_center = np.array([R, 0])
+    #new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
+
+    def new_center_schedule(t):
+        t_warp = sun_rotation_inverse(t)
+        return np.array([R*np.cos(-t_warp*TAU), R*np.sin(-t_warp*TAU)])
+    new_center_schedule_v = np.vectorize(new_center_schedule, signature='()->(2)')
+
+    return MeshingInfo(ring, new_center_schedule_v,
+                       new_num_rotations=1, num_rotations=4,
+                       new_outer=False,
+                       outer=True)
+
+# binary search parameters are annoying to keep changing
+#res = ring.get_meshing_gear(get_mi_planet, 0.1, 1.99)
+res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(1.740037002563477))
+planetB = res_planetB.get_gear()
+
+
+########### SUN GEAR B ##############
+def get_mi_sunB(R):
+    #new_g_center = np.array([R, 0])
+    #new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
+
+    new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
+    new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
+
+    return MeshingInfo(planetB, new_center_schedule,
+                       new_num_rotations=1, num_rotations=4,
+                       new_outer=False,
+                       outer=False)
+
+#res_sun = planet.get_meshing_gear(get_mi_sun, -1, 1)
+res_sunB = planetB.get_meshing_gear_attempt(get_mi_sunB(0.012523651123046875))
+sunB = res_sunB.get_gear()
+
+
+
+planet_clones = []
+for i in range(1, 5):
+    p = planetB.clone()
+    p.timeshift(i/5)
+    planet_clones.append(p)
+Gear.animate([ring, planetB, sunB, *planet_clones])
