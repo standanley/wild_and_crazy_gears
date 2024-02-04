@@ -96,7 +96,7 @@ def binary_search_core(fun, target, a, b, N):
 def binary_search(fun, minimum, maximum, target, N=20, visualize=True):
     if visualize:
         print('target is', target)
-        M = 10
+        M = 5
         xs = np.linspace(minimum, maximum, M)
         results = []
         for i in range(M):
@@ -174,8 +174,8 @@ class Gear:
         else:
             self.center_schedule = center_schedule
 
-        #self.N = 5000
-        self.N = 1000
+        self.N = 8000
+        #self.N = 1000
 
         thetas = np.linspace(0, 1, self.N+1)
         rs = self.radius_vs_theta(thetas)
@@ -507,11 +507,14 @@ def get_planetary_attempt_wrapper(param):
     opt, _ = get_planetary_attempt(param)
     return opt
 
-#result = binary_search(get_planetary_attempt_wrapper, -0.8, -0.39, 0, visualize=False)
+result = binary_search(get_planetary_attempt_wrapper, -0.76, -0.7, 0, visualize=False)
+print('hard-won result is', result)
+# hard-won result is -0.7506996726989748
+# the radius of the planet's orbit is 1.999993, which is probably supposed to be exactly 2. I cannot fathom why
 #test = get_planetary_attempt(-0.4)
 # magic param is -0.7540888023376464
-_, (ring, planet, sun) = get_planetary_attempt(-0.7540888023376464)
-Gear.animate([ring, planet, sun])
+_, (ring, planet, sun) = get_planetary_attempt(result)
+#Gear.animate([ring, planet, sun])
 
 ############ PLANET GEAR B #################
 
@@ -551,8 +554,8 @@ def get_mi_planetB(R):
 
 # binary search parameters are annoying to keep changing
 #res_planetB = ring.get_meshing_gear(get_mi_planetB, 0.1, 1.99)
-#res_planetB = ring.get_meshing_gear(get_mi_planetB, 1.7, 1.8)
-res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(1.9989906311035157))
+res_planetB = ring.get_meshing_gear(get_mi_planetB, 1.9, 2.1)
+#res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(1.9989906311035157))
 planetB = res_planetB.get_gear()
 
 
