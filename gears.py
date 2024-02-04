@@ -149,8 +149,8 @@ class Gear:
         else:
             self.center_schedule = center_schedule
 
-        self.N = 1024
-        #self.N = 96
+        #self.N = 1024
+        self.N = 96
 
         thetas = np.linspace(0, 1, self.N+1)
         rs = self.radius_vs_theta(thetas)
@@ -215,7 +215,7 @@ class Gear:
         curve, = ax.plot([0, 5], [0, 5])
         spokes, = ax.plot([0, 3], [0, 3])
         ax.plot([0], [0], 'x')
-        SIZE = 4
+        SIZE = 7
         ax.set_xlim([-SIZE, SIZE])
         ax.set_ylim([-SIZE, SIZE])
         def update(frame_time):
@@ -251,20 +251,20 @@ class Gear:
     def get_meshing_gear_simple(self):
 
         def get_mi(R):
-            #new_g_center = np.array([R, 0])
-            #new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
+            new_g_center = np.array([R, 0])
+            new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
 
 
-            new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
-            new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
+            #new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
+            #new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
 
             return MeshingInfo(self, new_center_schedule,
-                               new_num_rotations=1, num_rotations=3,
-                               new_outer=False,
+                               new_num_rotations=2, num_rotations=1,
+                               new_outer=True,
                                outer=False)
 
         # binary search parameters are annoying to keep changing
-        res = self.get_meshing_gear(get_mi, 3, 10)
+        res = self.get_meshing_gear(get_mi, 2, 10)
         new_g = Gear(res.new_radius_vs_theta, res.new_rotation_schedule, res.new_center_schedule)
         return new_g
 
@@ -279,9 +279,9 @@ class Gear:
             res = cls.get_meshing_gear_attempt(mi)
             return res.new_contact_local
 
-        param_opt = binary_search(fun, param_min, param_max, target, visualize=False)
+        param_opt = binary_search(fun, param_min, param_max, target, visualize=True)
         global DEBUG
-        DEBUG = True
+        #DEBUG = True
         res = cls.get_meshing_gear_attempt(get_mi(param_opt))
 
         # TODO I think I don't need this block anymore because it's taken care of
@@ -427,16 +427,16 @@ def g_rotation_schedule(t):
     return 0
 g_rotation_schedule = np.vectorize(g_rotation_schedule, signature='()->()')
 
-g = Gear(r_vs_t, rotation_schedule=g_rotation_schedule)
+g = Gear(r_vs_t)#, rotation_schedule=g_rotation_schedule)
 #g.animate()
 #exit()
 
 match = g.get_meshing_gear_simple()
 
-ts = np.linspace(-1.5, 2.5, 5000)
-rotations = match.rotation_schedule(ts)
-plt.plot(ts, rotations, '*')
-plt.show()
+#ts = np.linspace(-1.5, 2.5, 5000)
+#rotations = match.rotation_schedule(ts)
+#plt.plot(ts, rotations, '*')
+#plt.show()
 
 #match.animate()
 Gear.animate([g, match])
