@@ -210,7 +210,8 @@ class Gear:
         plt.show()
 
     def get_curve_points(self, time=0):
-        thetas = np.arange(0, 1, 1/self.N)
+        DRAW_N = 1000
+        thetas = np.arange(0, 1, 1/DRAW_N)
         thetas = np.append(thetas, thetas[0])
         rs = self.radius_vs_theta(thetas)
         rotation = self.rotation_schedule(time)
@@ -247,8 +248,8 @@ class Gear:
 
     def set_up_animation(self, ax):
         curve, = ax.plot([0, 5], [0, 5])
-        spokes, = ax.plot([0, 3], [0, 3])
-        ax.plot([0], [0], 'x')
+        #spokes, = ax.plot([0, 3], [0, 3])
+        #ax.plot([0], [0], 'x')
         SIZE = 4
         ax.set_xlim([-SIZE, SIZE])
         ax.set_ylim([-SIZE, SIZE])
@@ -256,8 +257,8 @@ class Gear:
             xs, ys = self.get_curve_points(frame_time)
             curve.set_data(xs, ys)
             xs_s, ys_s = self.get_spoke_points(frame_time)
-            spokes.set_data(xs_s, ys_s)
-            return [curve, spokes]
+            #spokes.set_data(xs_s, ys_s)
+            return [curve]#, spokes]
         return update
 
 
@@ -507,25 +508,18 @@ def get_planetary_attempt_wrapper(param):
     opt, _ = get_planetary_attempt(param)
     return opt
 
-result = binary_search(get_planetary_attempt_wrapper, -0.76, -0.7, 0, visualize=False)
+#result = binary_search(get_planetary_attempt_wrapper, -0.76, -0.7, 0, visualize=False)
+result = -0.7506996726989748
 print('hard-won result is', result)
 # hard-won result is -0.7506996726989748
 # the radius of the planet's orbit is 1.999993, which is probably supposed to be exactly 2. I cannot fathom why
-#test = get_planetary_attempt(-0.4)
-# magic param is -0.7540888023376464
 _, (ring, planet, sun) = get_planetary_attempt(result)
 #Gear.animate([ring, planet, sun])
 
 ############ PLANET GEAR B #################
 
-#temp = lambda t: (1-sun.rotation_schedule(t))/5
-#ts = np.linspace(-1.5, 2.5, 5000)
-#rotations = temp(ts)
-#plt.plot(ts, rotations, '*')
-#plt.show()
 
 EPS = 0
-#sun_rotation_inverse = get_inverse(temp, EPS, 1-EPS, 0, 1, sun.N)
 new_ys = (1-sun.rotation_schedule.ys) / 5
 #DEBUG=True
 # I have no idea why I need this cutoff ... might be related to imperfection in the parameters?
@@ -554,8 +548,8 @@ def get_mi_planetB(R):
 
 # binary search parameters are annoying to keep changing
 #res_planetB = ring.get_meshing_gear(get_mi_planetB, 0.1, 1.99)
-res_planetB = ring.get_meshing_gear(get_mi_planetB, 1.9, 2.1)
-#res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(1.9989906311035157))
+#res_planetB = ring.get_meshing_gear(get_mi_planetB, 1.9, 2.1)
+res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(2))
 planetB = res_planetB.get_gear()
 
 
