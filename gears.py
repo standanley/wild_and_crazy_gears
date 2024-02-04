@@ -172,7 +172,7 @@ class Gear:
         else:
             self.center_schedule = center_schedule
 
-        self.N = 1024
+        self.N = 5000
         #self.N = 96
 
         thetas = np.linspace(0, 1, self.N+1)
@@ -461,7 +461,8 @@ def get_mi_planet(R):
 
 # binary search parameters are annoying to keep changing
 #res = ring.get_meshing_gear(get_mi_planet, 0.1, 1.99)
-res = ring.get_meshing_gear_attempt(get_mi_planet(1.740037002563477))
+#res = ring.get_meshing_gear(get_mi_planet, 1.6, 1.9)
+res = ring.get_meshing_gear_attempt(get_mi_planet(1.7409096717834474))
 planet = res.get_gear()
 
 
@@ -481,12 +482,14 @@ def get_mi_sun(R):
                        outer=False)
 
 #res_sun = planet.get_meshing_gear(get_mi_sun, -1, 1)
-res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0.012523651123046875))
+#res_sun = planet.get_meshing_gear(get_mi_sun, -0.1, 0.1)
+#res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0.012523651123046875))
+res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0.011253166198730472))
 sun = res_sun.get_gear()
 
 ############ PLANET GEAR B #################
 
-temp = lambda t: (1-sun.rotation_schedule(t))/5
+#temp = lambda t: (1-sun.rotation_schedule(t))/5
 #ts = np.linspace(-1.5, 2.5, 5000)
 #rotations = temp(ts)
 #plt.plot(ts, rotations, '*')
@@ -496,12 +499,14 @@ EPS = 0
 #sun_rotation_inverse = get_inverse(temp, EPS, 1-EPS, 0, 1, sun.N)
 new_ys = (1-sun.rotation_schedule.ys) / 5
 #DEBUG=True
-sun_rotation_inverse = interp(new_ys[:-2], sun.rotation_schedule.xs[:-2], 1, period_y=1)
+# I have no idea why I need this cutoff ... might be related to imperfection in the parameters?
+CUTOFF = 2
+sun_rotation_inverse = interp(new_ys[:-CUTOFF], sun.rotation_schedule.xs[:-CUTOFF], 1, period_y=1)
 
-ts = np.linspace(-1.5, 2.5, 5000)
-rotations = sun_rotation_inverse(ts)
-plt.plot(ts, rotations, '*')
-plt.show()
+#ts = np.linspace(-1.5, 2.5, 5000)
+#rotations = sun_rotation_inverse(ts)
+#plt.plot(ts, rotations, '*')
+#plt.show()
 
 
 def get_mi_planetB(R):
@@ -519,8 +524,9 @@ def get_mi_planetB(R):
                        outer=True)
 
 # binary search parameters are annoying to keep changing
-#res = ring.get_meshing_gear(get_mi_planet, 0.1, 1.99)
-res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(1.740037002563477))
+#res_planetB = ring.get_meshing_gear(get_mi_planetB, 0.1, 1.99)
+#res_planetB = ring.get_meshing_gear(get_mi_planetB, 1.7, 1.8)
+res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(1.74122953414917))
 planetB = res_planetB.get_gear()
 
 
@@ -537,8 +543,8 @@ def get_mi_sunB(R):
                        new_outer=False,
                        outer=False)
 
-#res_sun = planet.get_meshing_gear(get_mi_sun, -1, 1)
-res_sunB = planetB.get_meshing_gear_attempt(get_mi_sunB(0.012523651123046875))
+#res_sunB = planetB.get_meshing_gear(get_mi_sunB, -0.1, 0.1)
+res_sunB = planetB.get_meshing_gear_attempt(get_mi_sunB(0.013304328918457033))
 sunB = res_sunB.get_gear()
 
 
