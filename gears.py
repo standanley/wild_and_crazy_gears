@@ -5,6 +5,7 @@ from functools import partial
 
 TAU = 2 * np.pi
 DEBUG = False
+VISUALIZE = False
 
 def get_inverse(fun, xmin, xmax, ymin, ymax, N):
     ys = np.linspace(ymin, ymax, N, endpoint=False)
@@ -95,7 +96,7 @@ def binary_search_core(fun, target, a, b, N):
 def binary_search(fun, minimum, maximum, target, N=20, visualize=True):
     if visualize:
         print('target is', target)
-        M = 100
+        M = 10
         xs = np.linspace(minimum, maximum, M)
         results = []
         for i in range(M):
@@ -293,10 +294,12 @@ class Gear:
             res = cls.get_meshing_gear_attempt(mi)
             return res.new_contact_local
 
-        param_opt = binary_search(fun, param_min, param_max, target, visualize=True)
+        param_opt = binary_search(fun, param_min, param_max, target, visualize=VISUALIZE)
         global DEBUG
         #DEBUG = True
         res = cls.get_meshing_gear_attempt(get_mi(param_opt))
+        # TODO this way of noting param_opt is a bit hacky
+        res.param_opt = param_opt
 
         # TODO I think I don't need this block anymore because it's taken care of
         #  inside get_meshing_gear_attempt now
@@ -425,85 +428,90 @@ class Gear:
 
 
 
-############## RING GEAR ##############
+def get_planetary_attempt(param):
+    ############## RING GEAR ##############
 
-#r_vs_t = lambda t: np.cos(t * TAU) + 2
-def r_vs_t_old(t):
-    A = 0.2
-    B = 0.6
-    C = 2.0
-    D = 3.0
-    N = 4
-    t = N*(t%(1/N))
-    if t < A:
-        return C
-    elif t < B:
-        return C + (D - C) / (B-A) * (t-A)
-    else:
-        return D
+    #r_vs_t = lambda t: np.cos(t * TAU) + 2
+    def r_vs_t_old(t):
+        A = 0.2
+        B = 0.6
+        C = 2.0
+        D = 3.0
+        N = 4
+        t = N*(t%(1/N))
+        if t < A:
+            return C
+        elif t < B:
+            return C + (D - C) / (B-A) * (t-A)
+        else:
+            return D
 
-def r_vs_t(t):
-    N = 4
-    A = -0.4
-    B = 0.1
-    t = N*(t%(1/N))
-    wave = np.sin(t*TAU) + A*np.sin(2*t*TAU-0.8) + B*np.sin(3*t*TAU)
-    return wave/2+3
+    def r_vs_t(t):
+        N = 4
+        A = param # -0.4
+        B = 0.1
+        t = N*(t%(1/N))
+        wave = np.sin(t*TAU) + A*np.sin(2*t*TAU-0.8) + B*np.sin(3*t*TAU)
+        return wave/2+3
 
-r_vs_t = np.vectorize(r_vs_t)
+    r_vs_t = np.vectorize(r_vs_t)
 
-def g_rotation_schedule(t):
-    return 0
-g_rotation_schedule = np.vectorize(g_rotation_schedule, signature='()->()')
+    def g_rotation_schedule(t):
+        return 0
+    g_rotation_schedule = np.vectorize(g_rotation_schedule, signature='()->()')
 
-ring = Gear(r_vs_t, rotation_schedule=g_rotation_schedule)
-#g.animate()
-#exit()
+    ring = Gear(r_vs_t, rotation_schedule=g_rotation_schedule)
+    #g.animate()
+    #exit()
 
-############## PLANET GEAR ######################
+    ############## PLANET GEAR ######################
+    def get_mi_planet(R):
+        #new_g_center = np.array([R, 0])
+        #new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
 
-def get_mi_planet(R):
-    #new_g_center = np.array([R, 0])
-    #new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
+        new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
+        new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
 
-    new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
-    new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
+        return MeshingInfo(ring, new_center_schedule,
+                           new_num_rotations=1, num_rotations=4,
+                           new_outer=False,
+                           outer=True)
 
-    return MeshingInfo(ring, new_center_schedule,
-                       new_num_rotations=1, num_rotations=4,
-                       new_outer=False,
-                       outer=True)
-
-# binary search parameters are annoying to keep changing
-res = ring.get_meshing_gear(get_mi_planet, 0.1, 2.36)
-#res = ring.get_meshing_gear_attempt(get_mi_planet(1.7409096717834474))
-planet = res.get_gear()
-
-
-Gear.animate([ring, planet])
-
-############# SUN GEAR #################
-
-def get_mi_sun(R):
-    #new_g_center = np.array([R, 0])
-    #new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
-
-    new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
-    new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
-
-    return MeshingInfo(planet, new_center_schedule,
-                       new_num_rotations=1, num_rotations=4,
-                       new_outer=False,
-                       outer=False)
-
-res_sun = planet.get_meshing_gear(get_mi_sun, -1.0, 0.3)
-#res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0.012523651123046875))
-#res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0.011253166198730472))
-sun = res_sun.get_gear()
+    # binary search parameters are annoying to keep changing
+    res = ring.get_meshing_gear(get_mi_planet, 0.1, 2.1)
+    #res = ring.get_meshing_gear_attempt(get_mi_planet(1.7409096717834474))
+    planet = res.get_gear()
 
 
+    #Gear.animate([ring, planet])
+
+    ############# SUN GEAR #################
+
+    def get_mi_sun(R):
+        #new_g_center = np.array([R, 0])
+        #new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
+
+        new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
+        new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
+
+        return MeshingInfo(planet, new_center_schedule,
+                           new_num_rotations=1, num_rotations=4,
+                           new_outer=False,
+                           outer=False)
+
+    res_sun = planet.get_meshing_gear(get_mi_sun, -1.0, 0.3)
+    sun = res_sun.get_gear()
+    return res_sun.param_opt, (ring, planet, sun)
+
+def get_planetary_attempt_wrapper(param):
+    opt, _ = get_planetary_attempt(param)
+    return opt
+
+#result = binary_search(get_planetary_attempt_wrapper, -0.8, -0.39, 0, visualize=False)
+#test = get_planetary_attempt(-0.4)
+# magic param is -0.7540888023376464
+_, (ring, planet, sun) = get_planetary_attempt(-0.7540888023376464)
 Gear.animate([ring, planet, sun])
-exit()
 
 ############ PLANET GEAR B #################
 
@@ -543,8 +551,8 @@ def get_mi_planetB(R):
 
 # binary search parameters are annoying to keep changing
 #res_planetB = ring.get_meshing_gear(get_mi_planetB, 0.1, 1.99)
-res_planetB = ring.get_meshing_gear(get_mi_planetB, 1.7, 1.8)
-#res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(1.74122953414917))
+#res_planetB = ring.get_meshing_gear(get_mi_planetB, 1.7, 1.8)
+res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(1.9989906311035157))
 planetB = res_planetB.get_gear()
 
 
@@ -561,8 +569,8 @@ def get_mi_sunB(R):
                        new_outer=False,
                        outer=False)
 
-res_sunB = planetB.get_meshing_gear(get_mi_sunB, -0.1, 0.1)
-#res_sunB = planetB.get_meshing_gear_attempt(get_mi_sunB(0.013304328918457033))
+#res_sunB = planetB.get_meshing_gear(get_mi_sunB, -0.1, 0.1)
+res_sunB = planetB.get_meshing_gear_attempt(get_mi_sunB(0))
 sunB = res_sunB.get_gear()
 
 
