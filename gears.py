@@ -13,66 +13,50 @@ def get_inverse(fun, xmin, xmax, ymin, ymax, N):
     for y in ys:
         x = binary_search_core(fun, y, xmin, xmax, 10)
         xs.append(x)
-    return interp(ys, xs, ymax-ymin, xmax-xmin)
+    return Interp(ys, xs, ymax-ymin, xmax-xmin)
 
 
 class Interp:
-    def __init__(self, xs, ys, period):
-        self.xs = xs
-        self.ys = ys
-        self.period = period
+    # EPS is used in cases where period_y is not None; this class will insert another point at
+    # [xs[0] + period_x - EPS, ys[0]+period_y]
+    EPS = 1e-10
 
-    def __call__(self, x):
-        return np.interp(x, self.xs, self.ys, period=self.period)
+    def __init__(self, xs, ys, period_x, period_y=None):
+        self.xs = np.array(xs)
+        self.ys = np.array(ys)
+        self.period_x = period_x
+        self.period_y = period_y
 
-# add functionality for period_y for cases where y wraps, such as wheel rotation as a function of time
-def interp(xs, ys, period, period_y=None):
-    expected_period = abs(xs[-1] - xs[0])
-    period = abs(period)
-    #if expected_period > period:
-    #    raise ValueError('something else weird in interp')
-    xs = np.array(xs)
-    ys = np.array(ys)
-    if period_y is None:
-        xs_new = xs
-        ys_new = ys
-    else:
-        # I wish I didn't need to bump the period by EPS, but np.interp does weird
-        # things when I don't
-        EPS = 1e-10
-        if xs[0] > xs[-1]:
-            period_temp = -1 * (period-EPS)
-        else:
-            period_temp = period - EPS
-        if ys[0] > ys[-1]:
-            period_y_temp = -1 * period_y
-        else:
-            period_y_temp = period_y
-        if (xs[0] + period_temp > xs[-1]) != (xs[0] > xs[-1]):
-            xs_new = np.append(xs, xs[0]+period_temp)
-            ys_new = np.append(ys, ys[0]+period_y_temp)
-        else:
-            xs_new = xs
-            ys_new = ys
+        self.N = len(xs)
+        assert len(ys) == self.N
 
-    if DEBUG:
-        #xs_new[-1] -= 1e-6
-        temp = lambda x: np.interp(x, xs_new, ys_new, period=period)
-        xs_fake = np.linspace(-0.1, 0.4, 30000)
-        ys_fake = temp(xs_fake)
+        diffs = np.diff(xs)
+        if all(diffs >= 0):
+            self.x_increasing = True
+        elif all(diffs <= 0):
+            self.x_increasing = False
+        else:
+            assert False, 'interp is not monotonic'
+
+        self.xs_interp = xs
+        self.ys_interp = ys
+        if self.period_y:
+            sign = (1 if self.x_increasing else -1)
+            x_final = self.xs_interp[0] + sign * (abs(self.period_x) - self.EPS)
+            self.xs_interp = np.append(self.xs_interp, x_final)
+            self.ys_interp = np.append(self.ys_interp, self.ys_interp[0] + self.period_y)
+
+        self.fun = lambda x: np.interp(x, self.xs_interp, self.ys_interp, period=self.period_x)
+
+    def visualize(self):
+        xs_fake = np.linspace(-.2*self.period_x, self.period_x*2.2, 30000)
+        ys_fake = self.fun(xs_fake)
         plt.plot(xs_fake, ys_fake, '*')
-        plt.plot(xs_new, ys_new, '-')
+        plt.plot(self.xs, self.ys, '+')
         plt.show()
 
-    diffs = np.diff(xs_new)
-    if not (all(diffs >= 0) or all(diffs <= 0)):
-        raise ValueError('something weird in interp')
-
-
-
-    #return lambda x: np.interp(x, xs_new, ys_new, period=period)
-    return Interp(xs_new, ys_new, period=period)
-
+    def __call__(self, x):
+        return self.fun(x)
 
 
 
@@ -174,8 +158,8 @@ class Gear:
         else:
             self.center_schedule = center_schedule
 
-        self.N = 8000
-        #self.N = 1000
+        #self.N = 8000
+        self.N = 1000
 
         thetas = np.linspace(0, 1, self.N+1)
         rs = self.radius_vs_theta(thetas)
@@ -190,7 +174,7 @@ class Gear:
         # but now I let interp() handle that because of its EPS handling
         #lengths.append(length)
         self.total_length = length
-        self.theta_vs_length = interp(lengths, thetas[:-1], period=self.total_length, period_y=1)
+        self.theta_vs_length = Interp(lengths, thetas[:-1], self.total_length, period_y=1)
 
     def clone(self):
         return Gear(self.radius_vs_theta, self.rotation_schedule, self.center_schedule)
@@ -417,12 +401,12 @@ class Gear:
 
             contact_local_prev = contact_local
 
-        new_radius_vs_theta = interp(new_contacts_local, new_rs, 1/mi.new_num_rotations)
+        new_radius_vs_theta = Interp(new_contacts_local, new_rs, 1/mi.new_num_rotations)
 
         # TODO the period_y here should be 1/new_num_rotations, or even better, the
         #  period should be new_num_rotations but we have to duplicate the arrays accordingly
         # keep in mind that the time will end at 1/num_rotations, and we should have gotten through
-        new_rotation_schedule = interp(ts, new_rotations_global, period=1, period_y=1/mi.new_num_rotations)
+        new_rotation_schedule = Interp(ts, new_rotations_global, 1, period_y=1/mi.new_num_rotations)
 
         res = MeshingResult(new_contact_local, new_radius_vs_theta, new_rotation_schedule, mi.new_center_schedule)
         return res
@@ -524,7 +508,7 @@ new_ys = (1-sun.rotation_schedule.ys) / 5
 #DEBUG=True
 # I have no idea why I need this cutoff ... might be related to imperfection in the parameters?
 CUTOFF = 2
-sun_rotation_inverse = interp(new_ys[:-CUTOFF], sun.rotation_schedule.xs[:-CUTOFF], 1, period_y=1)
+sun_rotation_inverse = Interp(new_ys[:-CUTOFF], sun.rotation_schedule.xs[:-CUTOFF], 1, period_y=1)
 
 #ts = np.linspace(-1.5, 2.5, 5000)
 #rotations = sun_rotation_inverse(ts)
