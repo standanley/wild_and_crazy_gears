@@ -24,6 +24,7 @@ class Interp:
     def __init__(self, xs, ys, period_x, period_y=None):
         self.xs = np.array(xs)
         self.ys = np.array(ys)
+        #self.ys = ys
         self.period_x = period_x
         self.period_y = period_y
 
@@ -31,12 +32,15 @@ class Interp:
         assert len(ys) == self.N
 
         diffs = np.diff(xs)
+        self.x_increasing = True
+        nonmonotonic = False
         if all(diffs >= 0):
-            self.x_increasing = True
+            pass
         elif all(diffs <= 0):
             self.x_increasing = False
         else:
-            assert False, 'interp is not monotonic'
+            nonmonotonic = True
+
 
         self.xs_interp = xs
         self.ys_interp = ys
@@ -48,12 +52,30 @@ class Interp:
 
         self.fun = lambda x: np.interp(x, self.xs_interp, self.ys_interp, period=self.period_x)
 
+        #if len(self.ys.shape) == 1:
+        #    self.visualize()
+        assert not nonmonotonic, 'interp is not monotonic'
+
     def visualize(self):
         xs_fake = np.linspace(-.2*self.period_x, self.period_x*2.2, 30000)
         ys_fake = self.fun(xs_fake)
         plt.plot(xs_fake, ys_fake, '*')
         plt.plot(self.xs, self.ys, '+')
         plt.show()
+
+    @classmethod
+    def from_fun_xs(cls, fun, xs, period_x, period_y=None):
+        ys = fun(xs)
+        temp = cls(xs, ys, period_x, period_y)
+
+        # we override the normal interpolation function
+        temp.fun = fun
+        return temp
+
+    @classmethod
+    def from_fun(cls, fun, N, xmin, xmax, period_x, period_y=None):
+        xs = np.linspace(xmin, xmax, N, endpoint=False)
+        return cls.from_fun_xs(fun, xs, period_x, period_y)
 
     def __call__(self, x):
         return self.fun(x)
@@ -77,7 +99,7 @@ def binary_search_core(fun, target, a, b, N):
         return binary_search_core(fun, target, a, c, N - 1)
 
 
-def binary_search(fun, minimum, maximum, target, N=20, visualize=True):
+def binary_search(fun, minimum, maximum, target, N=20, visualize=False):
     if visualize:
         print('target is', target)
         M = 5
@@ -150,31 +172,37 @@ class Gear:
 
         if rotation_schedule is None:
             self.rotation_schedule = lambda t: 1.0*t
+            self.rotation_schedule = Interp.from_fun_xs(self.rotation_schedule, self.radius_vs_theta.xs, 1, 1)
         else:
             self.rotation_schedule = rotation_schedule
 
         if center_schedule is None:
             self.center_schedule = np.vectorize(lambda t: np.array([0, 0]), signature='()->(2)')
+            self.center_schedule = Interp.from_fun_xs(self.center_schedule, self.rotation_schedule.xs, 1)
         else:
             self.center_schedule = center_schedule
 
-        #self.N = 8000
-        self.N = 1000
-
-        thetas = np.linspace(0, 1, self.N+1)
-        rs = self.radius_vs_theta(thetas)
+        print('doing lenght')
+        #thetas = np.linspace(0, 1, self.N+1)
+        #rs = self.radius_vs_theta(thetas)
+        thetas = self.radius_vs_theta.xs
+        rs = self.radius_vs_theta.ys
         length = 0
         lengths = []
-        for i in range(self.N):
+        for i in range(len(thetas)):
             lengths.append(length)
-            dl = rs[i] * (thetas[i+1]-thetas[i]) * TAU
+            j = (i+1) % len(thetas)
+            # TODO I guess it would be better to do the actual distance ... but I'm not sure yet how I want to deal
+            #  with discontinuities. Also, so far this is only used for visualization
+            dl = abs((rs[i] + rs[j])/2 * ((thetas[j]-thetas[i]+0.5)%1-0.5) * TAU)
             length += dl
 
         # I used to put an extra point here at the end so it matches the beginning exactly,
         # but now I let interp() handle that because of its EPS handling
         #lengths.append(length)
         self.total_length = length
-        self.theta_vs_length = Interp(lengths, thetas[:-1], self.total_length, period_y=1)
+        self.theta_vs_length = Interp(lengths, thetas, self.total_length, period_y=1)
+        print('done doing length')
 
     def clone(self):
         return Gear(self.radius_vs_theta, self.rotation_schedule, self.center_schedule)
@@ -194,8 +222,9 @@ class Gear:
         plt.show()
 
     def get_curve_points(self, time=0):
-        DRAW_N = 1000
-        thetas = np.arange(0, 1, 1/DRAW_N)
+        xs = self.radius_vs_theta.xs
+        DRAW_N = len(xs)
+        thetas = np.linspace(xs[0], xs[-1], DRAW_N, endpoint=False)
         thetas = np.append(thetas, thetas[0])
         rs = self.radius_vs_theta(thetas)
         rotation = self.rotation_schedule(time)
@@ -308,7 +337,7 @@ class Gear:
         assert not (mi.outer and mi.new_outer)
         r_finished = False
 
-        N = mi.g.N
+        #N = mi.g.N
         # first, get ts such that they run through the right amount of g's rotation schedule
         nr = mi.num_rotations
         #if nr == 1:
@@ -324,7 +353,13 @@ class Gear:
         #t_max = 1/nr
         t_max = 1
 
-        ts = np.linspace(0, t_max, mi.g.N, endpoint=False)
+        #ts_old = np.linspace(0, t_max, mi.g.N, endpoint=False)
+        ts = np.unique(np.concatenate([
+            mi.g.rotation_schedule.xs,
+            mi.g.center_schedule.xs,
+            mi.new_center_schedule.xs
+        ]))
+        N = len(ts)
 
         rotations_global = mi.g.rotation_schedule(ts)
         centers = mi.g.center_schedule(ts)
@@ -342,6 +377,7 @@ class Gear:
         new_contact_local = 0
         new_contacts_local = []
         new_rs = []
+        first_contact_local = None
         for i in range(N+1):
             x0, y0 = centers[i%N]
             x1, y1 = new_centers[i%N]
@@ -361,6 +397,8 @@ class Gear:
                 contact_global = contact_global_init
 
             contact_local = contact_global - rotation_global
+            if i == 0:
+                first_contact_local = contact_local
             # NOTE we cannot calculate new_contact local like this. The correct way to do it is
             # to think about gear meshing to set new_contact_local, then use that and new_contact_local
             # to set new_rotation_global.
@@ -392,8 +430,16 @@ class Gear:
 
                 # when new gear is created from an old gear with multiple repetitions we do not want the new
                 # gears radius to be formed from copies of each time around the old gear, so we end early
-                if len(new_contacts_local) > 0 and abs(new_contact_local - new_contacts_local[0]) > 1:
+                #if len(new_contacts_local) > 0 and abs(new_contact_local - new_contacts_local[0]) > 1:
+                #    r_finished = True
+                if not r_finished and abs(contact_local - first_contact_local) > 1/mi.num_rotations:
+                    # At this point we are done defining our new gear's shape, but we will continue
+                    #  thinking because we might not be done defining the rotation schedule
+                    # NOTE we do not check that additional times around defining this gear match up;
+                    # in fact we haven't even checked that we are stopping in the same place we started
+                    # because that's often not the case when we are still searching for the right params
                     r_finished = True
+                    final_new_contact_local = new_contact_local
 
                 if not r_finished:
                     new_contacts_local.append(new_contact_local)
@@ -408,10 +454,11 @@ class Gear:
         # keep in mind that the time will end at 1/num_rotations, and we should have gotten through
         new_rotation_schedule = Interp(ts, new_rotations_global, 1, period_y=1/mi.new_num_rotations)
 
-        res = MeshingResult(new_contact_local, new_radius_vs_theta, new_rotation_schedule, mi.new_center_schedule)
+        res = MeshingResult(final_new_contact_local, new_radius_vs_theta, new_rotation_schedule, mi.new_center_schedule)
         return res
 
-
+PLANET_N = 250
+RING_N = 4*PLANET_N
 
 def get_planetary_attempt(param):
     ############## RING GEAR ##############
@@ -440,10 +487,12 @@ def get_planetary_attempt(param):
         return wave/2+3
 
     r_vs_t = np.vectorize(r_vs_t)
+    r_vs_t = Interp.from_fun(r_vs_t, RING_N, 0, 1, 1)
 
     def g_rotation_schedule(t):
         return 0
     g_rotation_schedule = np.vectorize(g_rotation_schedule, signature='()->()')
+    g_rotation_schedule = Interp.from_fun(g_rotation_schedule, RING_N, 0, 1, 1)
 
     ring = Gear(r_vs_t, rotation_schedule=g_rotation_schedule)
     #g.animate()
@@ -456,6 +505,7 @@ def get_planetary_attempt(param):
 
         new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
         new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
+        new_center_schedule = Interp.from_fun(new_center_schedule, RING_N, 0, 1, 1)
 
         return MeshingInfo(ring, new_center_schedule,
                            new_num_rotations=1, num_rotations=4,
@@ -463,8 +513,9 @@ def get_planetary_attempt(param):
                            outer=True)
 
     # binary search parameters are annoying to keep changing
-    res = ring.get_meshing_gear(get_mi_planet, 0.1, 2.1)
+    #res = ring.get_meshing_gear(get_mi_planet, 0.1, 2.1)
     #res = ring.get_meshing_gear_attempt(get_mi_planet(1.7409096717834474))
+    res = ring.get_meshing_gear_attempt(get_mi_planet(2.0))
     planet = res.get_gear()
 
 
@@ -478,9 +529,10 @@ def get_planetary_attempt(param):
 
         new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
         new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
+        new_center_schedule = Interp.from_fun(new_center_schedule, RING_N, 0, 1, 1)
 
         return MeshingInfo(planet, new_center_schedule,
-                           new_num_rotations=1, num_rotations=4,
+                           new_num_rotations=1, num_rotations=1,
                            new_outer=False,
                            outer=False)
 
@@ -498,7 +550,7 @@ print('hard-won result is', result)
 # hard-won result is -0.7506996726989748
 # the radius of the planet's orbit is 1.999993, which is probably supposed to be exactly 2. I cannot fathom why
 _, (ring, planet, sun) = get_planetary_attempt(result)
-#Gear.animate([ring, planet, sun])
+Gear.animate([ring, planet, sun])
 
 ############ PLANET GEAR B #################
 
@@ -522,8 +574,9 @@ def get_mi_planetB(R):
 
     def new_center_schedule(t):
         t_warp = sun_rotation_inverse(t)
-        return np.array([R*np.cos(-t_warp*TAU), R*np.sin(-t_warp*TAU)])
+        return [R*np.cos(-t_warp*TAU), R*np.sin(-t_warp*TAU)]
     new_center_schedule_v = np.vectorize(new_center_schedule, signature='()->(2)')
+    new_center_schedule_v = Interp.from_fun_xs(new_center_schedule, sun_rotation_inverse.xs, 1, 1)
 
     return MeshingInfo(ring, new_center_schedule_v,
                        new_num_rotations=1, num_rotations=4,
