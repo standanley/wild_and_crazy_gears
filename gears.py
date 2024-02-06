@@ -349,7 +349,7 @@ class Gear:
     @classmethod
     def get_meshing_gear(cls, get_mi, param_min, param_max):
         mi_min, mi_max = get_mi(param_min), get_mi(param_max)
-        target_flip = -1 if mi_min.new_outer else 1
+        target_flip = 1 if mi_min.outer ^ mi_min.new_outer else -1
         #target = 1 / mi_min.new_num_rotations * mi_min.num_rotations * target_flip
         target = 1 / mi_min.new_num_rotations * target_flip
 
@@ -472,10 +472,13 @@ class Gear:
         new_rs = []
         first_contact_local = None
         new_rotation_global_prev = None
+        rotation_global_prev = None
         new_contact_local_prev = None
         contact_local_prev = None
+        contact_global_prev = None
         new_r_prev = None
         r_prev = None
+        final_new_contact_local = None
         for i in range(N+1):
             x0, y0 = centers[i%N]
             x1, y1 = new_centers[i%N]
@@ -512,15 +515,10 @@ class Gear:
                 new_r = dist - r
 
 
-            # FIRST we add new data to new_rotations_global, new_contacts_local, and new_rs
-            new_rotation_global = new_contact_global - new_contact_local
-            if len(new_rotations_global) > 0:
-                diff = new_rotation_global - new_rotations_global[-1]
-                diff_shift = (diff + 0.5) % 1.0 - 0.5
-                new_rotation_global = new_rotations_global[-1] + diff_shift
 
             # we really just need contact_local_prev in order to do this block
             if i != 0:
+                # FIRST we add new data to new_rotations_global, new_contacts_local, and new_rs
                 new_rotations_global.append(new_rotation_global_prev)
                 if not r_finished:
                     new_contacts_local.append(new_contact_local_prev)
@@ -529,14 +527,14 @@ class Gear:
                         r_finished = True
 
                 if animate:
-                    center = centers[i % N]
-                    new_center = new_centers[i % N]
-                    pointsx = [center[0], new_center[0], center[0] + r * np.cos(contact_global * TAU)]
-                    pointsy = [center[1], new_center[1], center[1] + r * np.sin(contact_global * TAU)]
-                    data = [center, thetas_animation, rs_animation, rotation_global,
-                            new_center, new_contacts_local, new_rs, new_rotation_global,
+                    center = centers[(i-1) % N]
+                    new_center = new_centers[(i-1) % N]
+                    pointsx = [center[0], new_center[0], center[0] + r_prev * np.cos(contact_global_prev * TAU)]
+                    pointsy = [center[1], new_center[1], center[1] + r_prev * np.sin(contact_global_prev * TAU)]
+                    data = [center, thetas_animation, rs_animation, rotation_global_prev,
+                            new_center, new_contacts_local, new_rs, new_rotation_global_prev,
                             pointsx, pointsy]
-                    # yield data
+                    yield data
                 # SECOND we think about how much the new gear needs to spin to get from prev to current
                 # The old gear spins from r_prev to r over a rotation of d_contact_local
                 # the new gear is going from new_r_prev to new_r at the same time
@@ -544,7 +542,7 @@ class Gear:
                 #  would have to be super wrong for the gear to try moving more than .5 in one step
                 period = 1/mi.num_rotations
                 d_contact_local = (contact_local - contact_local_prev + (period/2)) % period - (period/2)
-                new_contact_ratio_flip = -1 if mi.new_outer ^ mi.outer else 1
+                new_contact_ratio_flip = 1 if mi.new_outer ^ mi.outer else -1
                 # TODO I'm averaging r and r_prev here, but I think the proper math is more complicated
                 contact_rate_ratio = (r+r_prev) / (new_r+new_r_prev) * new_contact_ratio_flip
                 d_new_contact_local = d_contact_local * contact_rate_ratio
@@ -577,12 +575,21 @@ class Gear:
                 if r_one_more and r_finished:
                     r_one_more = False
 
+            # this needs to happen after new_contact_local has been updated,
+            # but also needs to happen on the first time around
+            new_rotation_global = new_contact_global - new_contact_local
+            if len(new_rotations_global) > 0:
+                diff = new_rotation_global - new_rotations_global[-1]
+                diff_shift = (diff + 0.5) % 1.0 - 0.5
+                new_rotation_global = new_rotations_global[-1] + diff_shift
 
             contact_local_prev = contact_local
+            contact_global_prev = contact_global
             new_contact_local_prev = new_contact_local
             new_r_prev = new_r
             r_prev = r
             new_rotation_global_prev = new_rotation_global
+            rotation_global_prev = rotation_global
 
         new_radius_vs_theta = Interp(new_contacts_local, new_rs, 1/mi.new_num_rotations)
 
@@ -592,8 +599,50 @@ class Gear:
         #print('period y', 1/mi.new_num_rotations)
         new_rotation_schedule = Interp(ts, new_rotations_global, 1, period_y=1/mi.new_num_rotations)
 
+        if final_new_contact_local is None:
+            # we somehow didnt make it to the end of the old gear within the time
+            final_new_contact_local = new_contact_local
         res = MeshingResult(final_new_contact_local, new_radius_vs_theta, new_rotation_schedule, mi.new_center_schedule)
         return res
+
+
+
+SIMPLE_N = 20
+rvt1 = lambda t: 2+1*np.sin(t*TAU)
+rvt1 = Interp.from_fun(rvt1, SIMPLE_N, 0, 1, 1, 1)
+g1 = Gear(rvt1)
+
+
+def get_mi_g2(R):
+    new_g_center = np.array([R, 0])
+    new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
+
+    #new_center_schedule = lambda t: np.array([R * np.cos(-t * TAU), R * np.sin(-t * TAU)])
+    #new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
+
+    new_center_schedule = Interp.from_fun(new_center_schedule, SIMPLE_N, 0, 1, 1)
+
+    return MeshingInfo(g1, new_center_schedule,
+                       new_num_rotations=1, num_rotations=1,
+                       new_outer=False,
+                       outer=False)
+
+
+#res = g1.get_meshing_gear(get_mi_g2, 3, 6)
+res = g1.animate_meshing_gear_attempt(get_mi_g2(4.43))
+g2 = res.get_gear()
+Gear.animate([g1, g2])
+exit()
+
+
+
+
+
+
+
+
+
+
 
 PLANET_N = 25
 RING_N = 4*PLANET_N
