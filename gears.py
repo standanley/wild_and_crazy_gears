@@ -574,9 +574,9 @@ def get_mi_planetB(R):
 
     def new_center_schedule(t):
         t_warp = sun_rotation_inverse(t)
-        return [R*np.cos(-t_warp*TAU), R*np.sin(-t_warp*TAU)]
+        return np.array([R*np.cos(-t_warp*TAU), R*np.sin(-t_warp*TAU)])
     new_center_schedule_v = np.vectorize(new_center_schedule, signature='()->(2)')
-    new_center_schedule_v = Interp.from_fun_xs(new_center_schedule, sun_rotation_inverse.xs, 1, 1)
+    new_center_schedule_v = Interp.from_fun_xs(new_center_schedule_v, sun_rotation_inverse.xs, 1, 1)
 
     return MeshingInfo(ring, new_center_schedule_v,
                        new_num_rotations=1, num_rotations=4,
@@ -596,10 +596,11 @@ def get_mi_sunB(R):
     #new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
 
     new_center_schedule = lambda t: np.array([R*np.cos(-t*TAU), R*np.sin(-t*TAU)])
-    new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
+    new_center_schedule_v = np.vectorize(new_center_schedule, signature='()->(2)')
+    new_center_schedule_v = Interp.from_fun_xs(new_center_schedule_v, sun_rotation_inverse.xs, 1, 1)
 
-    return MeshingInfo(planetB, new_center_schedule,
-                       new_num_rotations=1, num_rotations=4,
+    return MeshingInfo(planetB, new_center_schedule_v,
+                       new_num_rotations=1, num_rotations=1,
                        new_outer=False,
                        outer=False)
 
