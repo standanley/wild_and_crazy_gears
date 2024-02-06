@@ -310,7 +310,7 @@ class Gear:
         return xs, ys
 
     def set_up_animation(self, ax):
-        curve, = ax.plot([0, 5], [0, 5], 'x')
+        curve, = ax.plot([0, 5], [0, 5], '*')
         #spokes, = ax.plot([0, 3], [0, 3])
         #ax.plot([0], [0], 'x')
         SIZE = 4
@@ -350,7 +350,7 @@ class Gear:
     @classmethod
     def get_meshing_gear(cls, get_mi, param_min, param_max):
         mi_min, mi_max = get_mi(param_min), get_mi(param_max)
-        target_flip = 1 if mi_min.outer ^ mi_min.new_outer else -1
+        target_flip = 1 if mi_min.new_outer else -1
         #target = 1 / mi_min.new_num_rotations * mi_min.num_rotations * target_flip
         target = 1 / mi_min.new_num_rotations * target_flip
 
@@ -610,32 +610,32 @@ class Gear:
 
 
 
-SIMPLE_N = 20
-rvt1 = lambda t: 2+1*np.sin(t*TAU)
-rvt1 = Interp.from_fun(rvt1, SIMPLE_N, 0, 1, 1, 1)
-g1 = Gear(rvt1)
-
-
-def get_mi_g2(R):
-    new_g_center = np.array([R, 0])
-    new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
-
-    #new_center_schedule = lambda t: np.array([R * np.cos(-t * TAU), R * np.sin(-t * TAU)])
-    #new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
-
-    new_center_schedule = Interp.from_fun(new_center_schedule, SIMPLE_N, 0, 1, 1)
-
-    return MeshingInfo(g1, new_center_schedule,
-                       new_num_rotations=1, num_rotations=1,
-                       new_outer=False,
-                       outer=False)
-
-
-#res = g1.get_meshing_gear(get_mi_g2, 3, 6)
-res = g1.get_meshing_gear_attempt(get_mi_g2(4.43))
-g2 = res.get_gear()
-Gear.animate([g1, g2])
-exit()
+#SIMPLE_N = 20
+#rvt1 = lambda t: 2+1*np.sin(t*TAU)
+#rvt1 = Interp.from_fun(rvt1, SIMPLE_N, 0, 1, 1, 1)
+#g1 = Gear(rvt1)
+#
+#
+#def get_mi_g2(R):
+#    new_g_center = np.array([R, 0])
+#    new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
+#
+#    #new_center_schedule = lambda t: np.array([R * np.cos(-t * TAU), R * np.sin(-t * TAU)])
+#    #new_center_schedule = np.vectorize(new_center_schedule, signature='()->(2)')
+#
+#    new_center_schedule = Interp.from_fun(new_center_schedule, SIMPLE_N, 0, 1, 1)
+#
+#    return MeshingInfo(g1, new_center_schedule,
+#                       new_num_rotations=1, num_rotations=1,
+#                       new_outer=False,
+#                       outer=False)
+#
+#
+##res = g1.get_meshing_gear(get_mi_g2, 3, 6)
+#res = g1.get_meshing_gear_attempt(get_mi_g2(4.43))
+#g2 = res.get_gear()
+#Gear.animate([g1, g2])
+#exit()
 
 
 
@@ -711,7 +711,7 @@ def get_planetary_attempt(param):
     planet = res.get_gear()
 
 
-    Gear.animate([ring, planet])
+    #Gear.animate([ring, planet])
 
     ############# SUN GEAR #################
 
@@ -728,9 +728,13 @@ def get_planetary_attempt(param):
                            new_outer=False,
                            outer=False)
 
-    res_sun = planet.get_meshing_gear(get_mi_sun, -1.0, 0.3)
+    global VISUALIZE
+    VISUALIZE = True
+    #res_sun = planet.get_meshing_gear(get_mi_sun, -1.0, 0.3)
+    res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0))
     sun = res_sun.get_gear()
-    return res_sun.param_opt, (ring, planet, sun)
+    #return res_sun.param_opt, (ring, planet, sun)
+    return 0, (ring, planet, sun)
 
 def get_planetary_attempt_wrapper(param):
     opt, _ = get_planetary_attempt(param)
