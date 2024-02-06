@@ -3,6 +3,53 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from functools import partial
 
+#def test():
+#    fig = plt.figure()
+#    ax = fig.add_subplot()
+#    ax.set_aspect('equal')
+#    SIZE = 4
+#    ax.set_xlim([-SIZE, SIZE])
+#    ax.set_ylim([-SIZE, SIZE])
+#    curve, = ax.plot([], [])
+#
+#    print('creating iterator')
+#    temp = test2()
+#    done = False
+#
+#    def update(time):
+#        try:
+#            xs, ys = temp.__next__()
+#            curve.set_data(xs, ys)
+#        except StopIteration:
+#            print('done')
+#            pass
+#        return [curve]
+#
+#
+#    ani = FuncAnimation(fig, partial(update), frames=np.arange(0, 1, 1 / 200),
+#                        blit=True, interval=330)
+#    plt.show()
+#
+#    return temp
+#
+#
+#
+#def test2():
+#    xs = [1]
+#    ys = [1]
+#    for i in range(10):
+#        xs.append(1 + i*0.01)
+#        ys.append(2)
+#
+#        print('yielding', xs, ys)
+#
+#        yield (xs, ys)
+#    return 'hello'
+#
+#temp = test()
+#print('exiting')
+#exit()
+#
 TAU = 2 * np.pi
 DEBUG = False
 VISUALIZE = False
@@ -52,12 +99,14 @@ class Interp:
 
         self.fun = lambda x: np.interp(x, self.xs_interp, self.ys_interp, period=self.period_x)
 
-        #if len(self.ys.shape) == 1:
-        #    self.visualize()
+        DO_VISUALIZE = False
+        if DO_VISUALIZE and len(self.ys.shape) == 1:
+            self.visualize()
         assert not nonmonotonic, 'interp is not monotonic'
 
     def visualize(self):
-        xs_fake = np.linspace(-.2*self.period_x, self.period_x*2.2, 30000)
+        #xs_fake = np.linspace(-.2*self.period_x, self.period_x*2.2, 30000)
+        xs_fake = np.linspace(-2.1, 2.1, 30000)
         ys_fake = self.fun(xs_fake)
         plt.plot(xs_fake, ys_fake, '*')
         plt.plot(self.xs, self.ys, '+')
@@ -99,7 +148,7 @@ def binary_search_core(fun, target, a, b, N):
         return binary_search_core(fun, target, a, c, N - 1)
 
 
-def binary_search(fun, minimum, maximum, target, N=20, visualize=False):
+def binary_search(fun, minimum, maximum, target, N=30, visualize=False):
     if visualize:
         print('target is', target)
         M = 5
@@ -300,8 +349,9 @@ class Gear:
     @classmethod
     def get_meshing_gear(cls, get_mi, param_min, param_max):
         mi_min, mi_max = get_mi(param_min), get_mi(param_max)
-        target_flip = -1 if mi_min.outer ^ mi_min.new_outer else 1
-        target = 1 / mi_min.new_num_rotations * mi_min.num_rotations * target_flip
+        target_flip = -1 if mi_min.new_outer else 1
+        #target = 1 / mi_min.new_num_rotations * mi_min.num_rotations * target_flip
+        target = 1 / mi_min.new_num_rotations * target_flip
 
         def fun(param):
             mi = get_mi(param)
@@ -327,15 +377,54 @@ class Gear:
 
         return res
 
+    @classmethod
+    def animate_meshing_gear_attempt(cls, mi):
+
+        fig = plt.figure()
+        ax = fig.add_subplot()
+        ax.set_aspect('equal')
+        SIZE = 4
+        ax.set_xlim([-SIZE, SIZE])
+        ax.set_ylim([-SIZE, SIZE])
+        gear, = ax.plot([], [])
+        new_gear, = ax.plot([], [])
+        points, = ax.plot([], [], 'x')
+
+        gen = cls.get_meshing_gear_attempt(mi, animate=True)
+
+        def set_curve(curve, center, thetas, rs, new_rotation_global):
+            rs = np.array(rs)
+            thetas = np.array(thetas)
+            xs = center[0] + rs*np.cos((thetas + new_rotation_global)*TAU)
+            ys = center[1] + rs*np.sin((thetas + new_rotation_global)*TAU)
+            curve.set_data(xs, ys)
+
+        def update(time):
+            data = gen.__next__()
+            (center, thetas, rs, new_rotation_global,
+                new_center, new_thetas, new_rs, new_new_rotation_global,
+                pointsx, pointsy) = data
+            set_curve(gear, center, thetas, rs, new_rotation_global)
+            set_curve(new_gear, new_center, new_thetas, new_rs, new_new_rotation_global)
+            points.set_data(pointsx, pointsy)
+
+            return [gear, new_gear, points]
+
+        ani = FuncAnimation(fig, partial(update), frames=np.arange(0, 1, 1/200),
+                            blit=True, interval=333)
+        plt.show()
+        exit()
+
 
     @classmethod
-    def get_meshing_gear_attempt(cls, mi):
+    def get_meshing_gear_attempt(cls, mi, animate=False):
         # imagine a line through both gear centers.
         # The contact point could be in between them: outer=False, new_outer=False,
         # it could be on the other side of new's center far from self: outer=True, new_outer=False
         # it could be on the other side of self's center far from new: outer=False, new_outer=True
         assert not (mi.outer and mi.new_outer)
         r_finished = False
+        r_one_more = False
 
         #N = mi.g.N
         # first, get ts such that they run through the right amount of g's rotation schedule
@@ -365,6 +454,10 @@ class Gear:
         centers = mi.g.center_schedule(ts)
         new_centers = mi.new_center_schedule(ts)
 
+        # only used in animation; we don't yet know the theta sampling we'll net to get r
+        thetas_animation = np.linspace(0, 1, 1001)
+        rs_animation = mi.g.radius_vs_theta(thetas_animation)
+
         # rotation holds the rotation of the self gear in a global context
         # contact_global holds the angle at which the new contacts self in a global context
         # contact_local holds the angle at which new contacts self relative to a reference point on self
@@ -378,6 +471,11 @@ class Gear:
         new_contacts_local = []
         new_rs = []
         first_contact_local = None
+        new_rotation_global_prev = None
+        new_contact_local_prev = None
+        contact_local_prev = None
+        new_r_prev = None
+        r_prev = None
         for i in range(N+1):
             x0, y0 = centers[i%N]
             x1, y1 = new_centers[i%N]
@@ -404,60 +502,100 @@ class Gear:
             # to set new_rotation_global.
             # new_contact_local = new_contact_global - new_rotation_global
 
+            r = mi.g.radius_vs_theta(contact_local)
+            dist = ((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5
+            if mi.new_outer:
+                new_r = dist + r
+            elif mi.outer:
+                new_r = r - dist
+            else:
+                new_r = dist - r
+
+
+            # FIRST we add new data to new_rotations_global, new_contacts_local, and new_rs
+            new_rotation_global = new_contact_global - new_contact_local
+            if len(new_rotations_global) > 0:
+                diff = new_rotation_global - new_rotations_global[-1]
+                diff_shift = (diff + 0.5) % 1.0 - 0.5
+                new_rotation_global = new_rotations_global[-1] + diff_shift
 
             # we really just need contact_local_prev in order to do this block
             if i != 0:
-                r = mi.g.radius_vs_theta(contact_local)
-                dist = ((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5
-                if mi.new_outer:
-                    new_r = dist + r
-                elif mi.outer:
-                    new_r = r - dist
-                else:
-                    new_r = dist - r
+                new_rotations_global.append(new_rotation_global_prev)
+                if not r_finished:
+                    new_contacts_local.append(new_contact_local_prev)
+                    new_rs.append(new_r_prev)
+                    if r_one_more:
+                        r_finished = True
 
-
+                if animate:
+                    center = centers[i % N]
+                    new_center = new_centers[i % N]
+                    pointsx = [center[0], new_center[0], center[0] + r * np.cos(contact_global * TAU)]
+                    pointsy = [center[1], new_center[1], center[1] + r * np.sin(contact_global * TAU)]
+                    data = [center, thetas_animation, rs_animation, rotation_global,
+                            new_center, new_contacts_local, new_rs, new_rotation_global,
+                            pointsx, pointsy]
+                    # yield data
+                # SECOND we think about how much the new gear needs to spin to get from prev to current
+                # The old gear spins from r_prev to r over a rotation of d_contact_local
+                # the new gear is going from new_r_prev to new_r at the same time
                 # NOTE I think technically this mod could hide a bug ... but I think your settings
                 #  would have to be super wrong for the gear to try moving more than .5 in one step
                 period = 1/mi.num_rotations
-                d_contact_local = (contact_local_prev - contact_local + (period/2)) % period - (period/2)
+                d_contact_local = (contact_local - contact_local_prev + (period/2)) % period - (period/2)
                 new_contact_ratio_flip = -1 if mi.new_outer ^ mi.outer else 1
-                d_new_contact_local = d_contact_local * r / new_r * new_contact_ratio_flip
+                # TODO I'm averaging r and r_prev here, but I think the proper math is more complicated
+                contact_rate_ratio = (r+r_prev) / (new_r+new_r_prev) * new_contact_ratio_flip
+                d_new_contact_local = d_contact_local * contact_rate_ratio
                 new_contact_local += d_new_contact_local
-                new_rotation_global = new_contact_global - new_contact_local
 
-                new_rotations_global.append(new_rotation_global)
 
                 # when new gear is created from an old gear with multiple repetitions we do not want the new
                 # gears radius to be formed from copies of each time around the old gear, so we end early
                 #if len(new_contacts_local) > 0 and abs(new_contact_local - new_contacts_local[0]) > 1:
                 #    r_finished = True
-                if not r_finished and abs(contact_local - first_contact_local) > 1/mi.num_rotations:
+                fraction_contacted = contact_local - first_contact_local
+                fraction_contacted_desired = 1/mi.num_rotations
+                if not r_finished and abs(fraction_contacted) > fraction_contacted_desired:
                     # At this point we are done defining our new gear's shape, but we will continue
                     #  thinking because we might not be done defining the rotation schedule
                     # NOTE we do not check that additional times around defining this gear match up;
                     # in fact we haven't even checked that we are stopping in the same place we started
                     # because that's often not the case when we are still searching for the right params
-                    r_finished = True
-                    final_new_contact_local = new_contact_local
+                    r_one_more = True
+                    # print('finishing contact at center', x1, y1)
+                    # print('finishing contact at new contact local (before correction', new_contact_local)
+                    # We want to prorate final_new_contact_local to account for partial completion of
+                    # the next contact_local chunk. We already added d_new_contact_local which put us
+                    # over the line, so let's take some of that out depending on how far over we were
+                    contact_overdone = (fraction_contacted - fraction_contacted_desired
+                                        if fraction_contacted > 0 else
+                                        fraction_contacted + fraction_contacted_desired)
+                    final_new_contact_local = new_contact_local - contact_overdone * contact_rate_ratio
+                    print('after correction', final_new_contact_local)
+                if r_one_more and r_finished:
+                    r_one_more = False
 
-                if not r_finished:
-                    new_contacts_local.append(new_contact_local)
-                    new_rs.append(new_r)
 
             contact_local_prev = contact_local
+            new_contact_local_prev = new_contact_local
+            new_r_prev = new_r
+            r_prev = r
+            new_rotation_global_prev = new_rotation_global
 
         new_radius_vs_theta = Interp(new_contacts_local, new_rs, 1/mi.new_num_rotations)
 
         # TODO the period_y here should be 1/new_num_rotations, or even better, the
         #  period should be new_num_rotations but we have to duplicate the arrays accordingly
         # keep in mind that the time will end at 1/num_rotations, and we should have gotten through
+        #print('period y', 1/mi.new_num_rotations)
         new_rotation_schedule = Interp(ts, new_rotations_global, 1, period_y=1/mi.new_num_rotations)
 
         res = MeshingResult(final_new_contact_local, new_radius_vs_theta, new_rotation_schedule, mi.new_center_schedule)
         return res
 
-PLANET_N = 250
+PLANET_N = 25
 RING_N = 4*PLANET_N
 
 def get_planetary_attempt(param):
@@ -482,7 +620,7 @@ def get_planetary_attempt(param):
         N = 4
         A = param # -0.4
         B = 0.1
-        t = N*(t%(1/N))
+        t = N*((t+0.125)%(1/N))
         wave = np.sin(t*TAU) + A*np.sin(2*t*TAU-0.8) + B*np.sin(3*t*TAU)
         return wave/2+3
 
@@ -513,13 +651,15 @@ def get_planetary_attempt(param):
                            outer=True)
 
     # binary search parameters are annoying to keep changing
-    #res = ring.get_meshing_gear(get_mi_planet, 0.1, 2.1)
+    res = ring.get_meshing_gear(get_mi_planet, 1.9, 2.1)
     #res = ring.get_meshing_gear_attempt(get_mi_planet(1.7409096717834474))
-    res = ring.get_meshing_gear_attempt(get_mi_planet(2.0))
+    #res = ring.get_meshing_gear_attempt(get_mi_planet(2.0))
+    #res = ring.get_meshing_gear_attempt(get_mi_planet(1.985703058540821))
+    #res = ring.animate_meshing_gear_attempt(get_mi_planet(2.0))
     planet = res.get_gear()
 
 
-    #Gear.animate([ring, planet])
+    Gear.animate([ring, planet])
 
     ############# SUN GEAR #################
 
