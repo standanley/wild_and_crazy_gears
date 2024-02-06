@@ -272,8 +272,9 @@ class Gear:
 
     def get_curve_points(self, time=0):
         xs = self.radius_vs_theta.xs
-        DRAW_N = len(xs)
-        thetas = np.linspace(xs[0], xs[-1], DRAW_N, endpoint=False)
+        #DRAW_N = len(xs)
+        #thetas = np.linspace(xs[0], xs[-1], DRAW_N, endpoint=False)
+        thetas = xs
         thetas = np.append(thetas, thetas[0])
         rs = self.radius_vs_theta(thetas)
         rotation = self.rotation_schedule(time)
@@ -309,7 +310,7 @@ class Gear:
         return xs, ys
 
     def set_up_animation(self, ax):
-        curve, = ax.plot([0, 5], [0, 5])
+        curve, = ax.plot([0, 5], [0, 5], 'x')
         #spokes, = ax.plot([0, 3], [0, 3])
         #ax.plot([0], [0], 'x')
         SIZE = 4
@@ -534,7 +535,7 @@ class Gear:
                     data = [center, thetas_animation, rs_animation, rotation_global_prev,
                             new_center, new_contacts_local, new_rs, new_rotation_global_prev,
                             pointsx, pointsy]
-                    yield data
+                    #yield data
                 # SECOND we think about how much the new gear needs to spin to get from prev to current
                 # The old gear spins from r_prev to r over a rotation of d_contact_local
                 # the new gear is going from new_r_prev to new_r at the same time
@@ -597,7 +598,9 @@ class Gear:
         #  period should be new_num_rotations but we have to duplicate the arrays accordingly
         # keep in mind that the time will end at 1/num_rotations, and we should have gotten through
         #print('period y', 1/mi.new_num_rotations)
-        new_rotation_schedule = Interp(ts, new_rotations_global, 1, period_y=1/mi.new_num_rotations)
+        # TODO actually I think calculation this is complicated
+        period_y = np.round(new_rotations_global[-1] - new_rotations_global[0])
+        new_rotation_schedule = Interp(ts, new_rotations_global, 1, period_y=period_y)
 
         if final_new_contact_local is None:
             # we somehow didnt make it to the end of the old gear within the time
@@ -629,7 +632,7 @@ def get_mi_g2(R):
 
 
 #res = g1.get_meshing_gear(get_mi_g2, 3, 6)
-res = g1.animate_meshing_gear_attempt(get_mi_g2(4.43))
+res = g1.get_meshing_gear_attempt(get_mi_g2(4.43))
 g2 = res.get_gear()
 Gear.animate([g1, g2])
 exit()
