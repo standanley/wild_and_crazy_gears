@@ -310,7 +310,7 @@ class Gear:
         return xs, ys
 
     def set_up_animation(self, ax):
-        curve, = ax.plot([0, 5], [0, 5], '*')
+        curve, = ax.plot([0, 5], [0, 5], '-')
         #spokes, = ax.plot([0, 3], [0, 3])
         #ax.plot([0], [0], 'x')
         SIZE = 4
@@ -350,14 +350,15 @@ class Gear:
     @classmethod
     def get_meshing_gear(cls, get_mi, param_min, param_max):
         mi_min, mi_max = get_mi(param_min), get_mi(param_max)
-        target_flip = 1 if mi_min.new_outer else -1
-        #target = 1 / mi_min.new_num_rotations * mi_min.num_rotations * target_flip
-        target = 1 / mi_min.new_num_rotations * target_flip
+
+        # target might be positive or negative, but it's too difficult to determine that
+        # from mi settings alone, so I always make it positive and abs() the result in fun
+        target = 1 / mi_min.new_num_rotations
 
         def fun(param):
             mi = get_mi(param)
             res = cls.get_meshing_gear_attempt(mi)
-            return res.new_contact_local
+            return abs(res.new_contact_local)
 
         param_opt = binary_search(fun, param_min, param_max, target, visualize=VISUALIZE)
         global DEBUG
@@ -387,11 +388,11 @@ class Gear:
         SIZE = 4
         ax.set_xlim([-SIZE, SIZE])
         ax.set_ylim([-SIZE, SIZE])
-        gear, = ax.plot([], [])
-        new_gear, = ax.plot([], [])
+        gear, = ax.plot([], [], '*')
+        new_gear, = ax.plot([], [], '*')
         points, = ax.plot([], [], 'x')
 
-        gen = cls.get_meshing_gear_attempt(mi, animate=True)
+        gen = cls.get_meshing_gear_attempt_iterator(mi, animate=True)
 
         def set_curve(curve, center, thetas, rs, new_rotation_global):
             rs = np.array(rs)
@@ -401,7 +402,11 @@ class Gear:
             curve.set_data(xs, ys)
 
         def update(time):
-            data = gen.__next__()
+            try:
+                data = gen.__next__()
+            except StopIteration as e:
+                return [gear, new_gear, points]
+
             (center, thetas, rs, new_rotation_global,
                 new_center, new_thetas, new_rs, new_new_rotation_global,
                 pointsx, pointsy) = data
@@ -412,13 +417,21 @@ class Gear:
             return [gear, new_gear, points]
 
         ani = FuncAnimation(fig, partial(update), frames=np.arange(0, 1, 1/200),
-                            blit=True, interval=333)
+                            blit=True, interval=100)
         plt.show()
         exit()
 
+    @classmethod
+    def get_meshing_gear_attempt(cls, mi):
+        try:
+            next(cls.get_meshing_gear_attempt_iterator(mi))
+            assert False, 'should have thrown StopIteration immediately'
+        except StopIteration as e:
+            return e.value
+
 
     @classmethod
-    def get_meshing_gear_attempt(cls, mi, animate=False):
+    def get_meshing_gear_attempt_iterator(cls, mi, animate=False):
         # imagine a line through both gear centers.
         # The contact point could be in between them: outer=False, new_outer=False,
         # it could be on the other side of new's center far from self: outer=True, new_outer=False
@@ -456,7 +469,8 @@ class Gear:
         new_centers = mi.new_center_schedule(ts)
 
         # only used in animation; we don't yet know the theta sampling we'll net to get r
-        thetas_animation = np.linspace(0, 1, 1001)
+        #thetas_animation = np.linspace(0, 1, 1001)
+        thetas_animation = mi.g.radius_vs_theta.xs
         rs_animation = mi.g.radius_vs_theta(thetas_animation)
 
         # rotation holds the rotation of the self gear in a global context
@@ -535,7 +549,7 @@ class Gear:
                     data = [center, thetas_animation, rs_animation, rotation_global_prev,
                             new_center, new_contacts_local, new_rs, new_rotation_global_prev,
                             pointsx, pointsy]
-                    #yield data
+                    yield data
                 # SECOND we think about how much the new gear needs to spin to get from prev to current
                 # The old gear spins from r_prev to r over a rotation of d_contact_local
                 # the new gear is going from new_r_prev to new_r at the same time
@@ -647,7 +661,7 @@ class Gear:
 
 
 
-PLANET_N = 25
+PLANET_N = 250
 RING_N = 4*PLANET_N
 
 def get_planetary_attempt(param):
@@ -703,9 +717,9 @@ def get_planetary_attempt(param):
                            outer=True)
 
     # binary search parameters are annoying to keep changing
-    res = ring.get_meshing_gear(get_mi_planet, 1.9, 2.1)
+    #res = ring.get_meshing_gear(get_mi_planet, 1.9, 2.1)
     #res = ring.get_meshing_gear_attempt(get_mi_planet(1.7409096717834474))
-    #res = ring.get_meshing_gear_attempt(get_mi_planet(2.0))
+    res = ring.get_meshing_gear_attempt(get_mi_planet(2.0))
     #res = ring.get_meshing_gear_attempt(get_mi_planet(1.985703058540821))
     #res = ring.animate_meshing_gear_attempt(get_mi_planet(2.0))
     planet = res.get_gear()
@@ -732,6 +746,7 @@ def get_planetary_attempt(param):
     VISUALIZE = True
     #res_sun = planet.get_meshing_gear(get_mi_sun, -1.0, 0.3)
     res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0))
+    #res_sun = planet.animate_meshing_gear_attempt(get_mi_sun(0.0881890560500324))
     sun = res_sun.get_gear()
     #return res_sun.param_opt, (ring, planet, sun)
     return 0, (ring, planet, sun)
