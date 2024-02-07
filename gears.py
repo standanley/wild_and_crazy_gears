@@ -3,53 +3,6 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from functools import partial
 
-#def test():
-#    fig = plt.figure()
-#    ax = fig.add_subplot()
-#    ax.set_aspect('equal')
-#    SIZE = 4
-#    ax.set_xlim([-SIZE, SIZE])
-#    ax.set_ylim([-SIZE, SIZE])
-#    curve, = ax.plot([], [])
-#
-#    print('creating iterator')
-#    temp = test2()
-#    done = False
-#
-#    def update(time):
-#        try:
-#            xs, ys = temp.__next__()
-#            curve.set_data(xs, ys)
-#        except StopIteration:
-#            print('done')
-#            pass
-#        return [curve]
-#
-#
-#    ani = FuncAnimation(fig, partial(update), frames=np.arange(0, 1, 1 / 200),
-#                        blit=True, interval=330)
-#    plt.show()
-#
-#    return temp
-#
-#
-#
-#def test2():
-#    xs = [1]
-#    ys = [1]
-#    for i in range(10):
-#        xs.append(1 + i*0.01)
-#        ys.append(2)
-#
-#        print('yielding', xs, ys)
-#
-#        yield (xs, ys)
-#    return 'hello'
-#
-#temp = test()
-#print('exiting')
-#exit()
-#
 TAU = 2 * np.pi
 DEBUG = False
 VISUALIZE = False
@@ -231,9 +184,6 @@ class Gear:
         else:
             self.center_schedule = center_schedule
 
-        print('doing lenght')
-        #thetas = np.linspace(0, 1, self.N+1)
-        #rs = self.radius_vs_theta(thetas)
         thetas = self.radius_vs_theta.xs
         rs = self.radius_vs_theta.ys
         length = 0
@@ -367,16 +317,6 @@ class Gear:
         # TODO this way of noting param_opt is a bit hacky
         res.param_opt = param_opt
 
-        # TODO I think I don't need this block anymore because it's taken care of
-        #  inside get_meshing_gear_attempt now
-        #if mi_min.new_num_rotations != 1:
-        #    num = mi_min.new_num_rotations
-        #    old_rvt = res.new_radius_vs_theta
-        #    def radius_vs_theta(theta):
-        #        # TODO I don't think the wrapping is perfect here
-        #        return old_rvt(theta % (1/num))
-        #    res.new_radius_vs_theta = radius_vs_theta
-
         return res
 
     @classmethod
@@ -440,23 +380,6 @@ class Gear:
         r_finished = False
         r_one_more = False
 
-        #N = mi.g.N
-        # first, get ts such that they run through the right amount of g's rotation schedule
-        nr = mi.num_rotations
-        #if nr == 1:
-        #    t_max = 1
-        #else:
-        #    # if max guess is too close to 1 (relative to g.N) then I think we might have issues
-        #    MAX_GUESS = 0.9
-        #    t_max = binary_search_core(mi.g.rotation_schedule, 1/nr, 0, 0.9, 50)
-        # TODO I think we need to search for this end point as we go. Rotation schedule is no good because sometimes
-        #  movement is caused by the center_schedule, and I'm also not sure rotation schedule is good if this gear
-        #  is the result of other weird stuff. I think this will work for now, though
-        #  UPDATE: I think it's no good because we need to finish the whole cycle to get all the schedules
-        #t_max = 1/nr
-        t_max = 1
-
-        #ts_old = np.linspace(0, t_max, mi.g.N, endpoint=False)
         ts = np.unique(np.concatenate([
             mi.g.rotation_schedule.xs,
             mi.g.center_schedule.xs,
@@ -528,8 +451,6 @@ class Gear:
                 new_r = r - dist
             else:
                 new_r = dist - r
-
-
 
             # we really just need contact_local_prev in order to do this block
             if i != 0:
@@ -650,14 +571,6 @@ class Gear:
 #g2 = res.get_gear()
 #Gear.animate([g1, g2])
 #exit()
-
-
-
-
-
-
-
-
 
 
 
