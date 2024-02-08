@@ -53,9 +53,11 @@ class Interp:
         self.fun = lambda x: np.interp(x, self.xs_interp, self.ys_interp, period=self.period_x)
 
         DO_VISUALIZE = False
-        if DO_VISUALIZE and len(self.ys.shape) == 1:
+        if (nonmonotonic) or (DO_VISUALIZE and len(self.ys.shape) == 1):
             self.visualize()
-        assert not nonmonotonic, 'interp is not monotonic'
+        #assert not nonmonotonic, 'interp is not monotonic'
+        if nonmonotonic:
+            raise ValueError('Nonmonotonic')
 
     def visualize(self):
         #xs_fake = np.linspace(-.2*self.period_x, self.period_x*2.2, 30000)
@@ -101,7 +103,7 @@ def binary_search_core(fun, target, a, b, N):
         return binary_search_core(fun, target, a, c, N - 1)
 
 
-def binary_search(fun, minimum, maximum, target, N=30, visualize=False):
+def binary_search(fun, minimum, maximum, target, N=20, visualize=False):
     if visualize:
         print('target is', target)
         M = 5
@@ -507,7 +509,7 @@ class Gear:
                                         if fraction_contacted > 0 else
                                         fraction_contacted + fraction_contacted_desired)
                     final_new_contact_local = new_contact_local - contact_overdone * contact_rate_ratio
-                    print('after correction', final_new_contact_local)
+                    #print('after correction', final_new_contact_local)
                 if r_one_more and r_finished:
                     r_one_more = False
 
@@ -574,7 +576,7 @@ class Gear:
 
 
 
-PLANET_N = 250
+PLANET_N = 100
 RING_N = 4*PLANET_N
 
 def get_planetary_attempt(param):
@@ -600,7 +602,7 @@ def get_planetary_attempt(param):
         A = param # -0.4
         B = 0.1
         t = N*((t+0.125)%(1/N))
-        wave = np.sin(t*TAU) + A*np.sin(2*t*TAU-0.8) + B*np.sin(3*t*TAU)
+        wave = np.sin(t*TAU) + A*np.sin(2*t*TAU-0.7) + B*np.sin(3*t*TAU)
         return wave/2+3
 
     r_vs_t = np.vectorize(r_vs_t)
@@ -630,11 +632,12 @@ def get_planetary_attempt(param):
                            outer=True)
 
     # binary search parameters are annoying to keep changing
-    #res = ring.get_meshing_gear(get_mi_planet, 1.9, 2.1)
+    res = ring.get_meshing_gear(get_mi_planet, 1.9, 2.1)
     #res = ring.get_meshing_gear_attempt(get_mi_planet(1.7409096717834474))
-    res = ring.get_meshing_gear_attempt(get_mi_planet(2.0))
+    #res = ring.get_meshing_gear_attempt(get_mi_planet(2.0))
     #res = ring.get_meshing_gear_attempt(get_mi_planet(1.985703058540821))
     #res = ring.animate_meshing_gear_attempt(get_mi_planet(2.0))
+    planet_param = res.param_opt
     planet = res.get_gear()
 
 
@@ -656,21 +659,23 @@ def get_planetary_attempt(param):
                            outer=False)
 
     global VISUALIZE
-    VISUALIZE = True
-    #res_sun = planet.get_meshing_gear(get_mi_sun, -1.0, 0.3)
-    res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0))
+    VISUALIZE = False
+    res_sun = planet.get_meshing_gear(get_mi_sun, -1.0, 0.3)
+    #res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0))
     #res_sun = planet.animate_meshing_gear_attempt(get_mi_sun(0.0881890560500324))
     sun = res_sun.get_gear()
-    #return res_sun.param_opt, (ring, planet, sun)
-    return 0, (ring, planet, sun)
+    return res_sun.param_opt, (ring, planet, sun)
+    #return 0, (ring, planet, sun)
 
 def get_planetary_attempt_wrapper(param):
     opt, _ = get_planetary_attempt(param)
     return opt
 
-#result = binary_search(get_planetary_attempt_wrapper, -0.76, -0.7, 0, visualize=False)
-result = -0.7506996726989748
+#result = binary_search(get_planetary_attempt_wrapper, -0.6, -0.8, 0, visualize=False)
+#result = binary_search(get_planetary_attempt_wrapper, -0.8, -0.35, 0, visualize=False)
+result = -0.7567597866058349
 print('hard-won result is', result)
+#exit()
 # hard-won result is -0.7506996726989748
 # the radius of the planet's orbit is 1.999993, which is probably supposed to be exactly 2. I cannot fathom why
 _, (ring, planet, sun) = get_planetary_attempt(result)
