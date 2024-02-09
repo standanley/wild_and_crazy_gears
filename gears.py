@@ -54,7 +54,7 @@ class Interp:
 
         self.fun = lambda x: np.interp(x, self.xs_interp, self.ys_interp, period=self.period_x)
 
-        if (nonmonotonic) or (DO_VISUALIZE and len(self.ys.shape) == 1):
+        if (DO_VISUALIZE and len(self.ys.shape) == 1):
             self.visualize()
         #assert not nonmonotonic, 'interp is not monotonic'
         if nonmonotonic:
@@ -272,7 +272,7 @@ class Gear:
         curve, = ax.plot([0, 5], [0, 5], '-')
         #spokes, = ax.plot([0, 3], [0, 3])
         #ax.plot([0], [0], 'x')
-        SIZE = 4
+        SIZE = 2
         ax.set_xlim([-SIZE, SIZE])
         ax.set_ylim([-SIZE, SIZE])
         def update(frame_time):
@@ -604,7 +604,7 @@ def get_planetary_attempt(param):
         else:
             return D
 
-    def r_vs_t(t):
+    def r_vs_t_old2(t):
         N = 4
         A = param # -0.4
         B = 0.1
@@ -612,8 +612,30 @@ def get_planetary_attempt(param):
         wave = np.sin(t*TAU) + A*np.sin(2*t*TAU-0.7) + B*np.sin(3*t*TAU)
         return wave/2+3
 
-    r_vs_t = np.vectorize(r_vs_t)
-    r_vs_t = Interp.from_fun(r_vs_t, RING_N, 0, 1, 1)
+    def get_r_vs_t_smooth(N):
+        rotations = 4
+        if N%rotations != 0:
+            print('WARNING: N is not a multiple of rotations in get_r_vs_t_smooth')
+        #t = rotations*((t+0.125)%(1/rotations))
+
+        points = np.array([
+            (0.0, 1.0), (0.2, param), (0.25, param), (0.6, 1.10), (0.7, 1.8), (0.8, 1.8)
+        ])
+        # TODO think about the value of QUANTIZATION. Can we do better then hard-coding?
+        temp = Interp(points[:, 0]/rotations, points[:, 1], 1/rotations)
+        smoothing = 0.15 / rotations
+        QUANTIZATION = 1000
+        def fun(t):
+            samples_x = np.linspace(t-smoothing/2, t+smoothing/2, QUANTIZATION)
+            samples_y = temp(samples_x)
+            val = np.sum(samples_y) / len(samples_y)
+            return val
+        fun_v = np.vectorize(fun)
+        return Interp.from_fun(fun_v, N, 0, 1, 1)
+
+    #r_vs_t = np.vectorize(r_vs_t)
+    #r_vs_t = Interp.from_fun(r_vs_t, RING_N, 0, 1, 1)
+    r_vs_t = get_r_vs_t_smooth(RING_N)
 
     def g_rotation_schedule(t):
         return 0
@@ -621,7 +643,7 @@ def get_planetary_attempt(param):
     g_rotation_schedule = Interp.from_fun(g_rotation_schedule, RING_N, 0, 1, 1)
 
     ring = Gear(r_vs_t, rotation_schedule=g_rotation_schedule)
-    #g.animate()
+    #Gear.animate([ring])
     #exit()
 
     ############## PLANET GEAR ######################
@@ -639,7 +661,7 @@ def get_planetary_attempt(param):
                            outer=True)
 
     # binary search parameters are annoying to keep changing
-    res = ring.get_meshing_gear(get_mi_planet, 1.9, 2.1)
+    res = ring.get_meshing_gear(get_mi_planet, 0.6, 1.2)
     #res = ring.get_meshing_gear_attempt(get_mi_planet(1.7409096717834474))
     #res = ring.get_meshing_gear_attempt(get_mi_planet(2.0))
     #res = ring.get_meshing_gear_attempt(get_mi_planet(1.985703058540821))
@@ -680,7 +702,7 @@ def get_planetary_attempt_wrapper(param):
     return opt
 
 #result = binary_search(get_planetary_attempt_wrapper, -0.6, -0.8, 0, visualize=False)
-result = binary_search(get_planetary_attempt_wrapper, -0.8, -0.35, 1, visualize=False)
+result = binary_search(get_planetary_attempt_wrapper, 1.6, 3.0, 1, visualize=False)
 #result = -0.7567597866058349
 #result = -0.755407953262329
 print()
