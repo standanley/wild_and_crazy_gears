@@ -210,12 +210,17 @@ class Gear:
     def clone(self):
         return Gear(self.radius_vs_theta, self.rotation_schedule, self.center_schedule)
 
-    def timeshift(self, dt):
+    def time_shift(self, dt):
         rotation_orig = self.rotation_schedule
         center_orig = self.center_schedule
         self.rotation_schedule = lambda t: rotation_orig(t-dt)
         self.center_schedule = lambda t: center_orig(t-dt)
 
+    def time_warp(self, warp_fun):
+        rotation_orig = self.rotation_schedule
+        center_orig = self.center_schedule
+        self.rotation_schedule = lambda t: rotation_orig(warp_fun(t))
+        self.center_schedule = lambda t: center_orig(warp_fun(t))
 
     def plot(self):
         xs, ys = self.get_curve_points()
@@ -678,7 +683,8 @@ def get_planetary_attempt_wrapper(param):
 #result = binary_search(get_planetary_attempt_wrapper, -0.8, -0.35, 1, visualize=False)
 #result = -0.7567597866058349
 result = -0.755407953262329
-print('hard-won result is', result)
+print()
+print('\thard-won result is', result)
 #exit()
 # hard-won result is -0.7506996726989748
 # the radius of the planet's orbit is 1.999993, which is probably supposed to be exactly 2. I cannot fathom why
@@ -711,23 +717,31 @@ def get_mi_planetB(R):
     #new_g_center = np.array([R, 0])
     #new_center_schedule = np.vectorize(lambda t: new_g_center, signature='()->(2)')
 
-    def new_center_schedule(t):
-        t_warp = sun_rotation_inverse(t)
-        return np.array([R*np.cos(-t_warp*TAU), R*np.sin(-t_warp*TAU)])
-    new_center_schedule_v = np.vectorize(new_center_schedule, signature='()->(2)')
-    new_center_schedule_v = Interp.from_fun_xs(new_center_schedule_v, sun_rotation_inverse.xs, 1, 1)
 
     return MeshingInfo(ring, new_center_schedule_v,
                        new_num_rotations=1, num_rotations=4,
                        new_outer=False,
                        outer=True)
 
-# binary search parameters are annoying to keep changing
-#res_planetB = ring.get_meshing_gear(get_mi_planetB, 0.1, 1.99)
-res_planetB = ring.get_meshing_gear(get_mi_planetB, 1.9, 2.1)
-#res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(2.0011800765991206))
-#res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(2.0))
-planetB = res_planetB.get_gear()
+## binary search parameters are annoying to keep changing
+##res_planetB = ring.get_meshing_gear(get_mi_planetB, 0.1, 1.99)
+## TODO we should be able to get rid of this attempt by reusing the old shape and warping the rotation
+#res_planetB = ring.get_meshing_gear(get_mi_planetB, 1.9, 2.1)
+##res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(2.0011800765991206))
+##res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(2.0))
+#planetB = res_planetB.get_gear()
+
+#def new_center_schedule(t):
+#    t_warp = sun_rotation_inverse(t)
+#    return np.array([R * np.cos(-t_warp * TAU), R * np.sin(-t_warp * TAU)])
+#
+#
+#new_center_schedule_v = np.vectorize(new_center_schedule, signature='()->(2)')
+#new_center_schedule_v = Interp.from_fun_xs(new_center_schedule_v, sun_rotation_inverse.xs, 1, 1)
+##planetB_center_schedule =
+
+planetB = planet.clone()
+planetB.time_warp(sun_rotation_inverse)
 
 
 ########### SUN GEAR B ##############
@@ -756,6 +770,6 @@ sunB.rotation_schedule = Interp.from_fun_xs(lambda t: -5.0 * t, sunB.radius_vs_t
 planet_clones = []
 for i in range(1, 5):
     p = planetB.clone()
-    p.timeshift(i/5)
+    p.time_shift(i/5)
     planet_clones.append(p)
 Gear.animate([ring, planetB, sunB, *planet_clones])
