@@ -107,7 +107,7 @@ def binary_search_core(fun, target, a, b, N):
 def binary_search(fun, minimum, maximum, target, N=10, visualize=False):
     if visualize:
         print('target is', target)
-        M = 5
+        M = 15
         xs = np.linspace(minimum, maximum, M)
         results = []
         for i in range(M):
@@ -583,7 +583,7 @@ class Gear:
 
 
 PLANET_N = 100
-RING_N = 4*PLANET_N
+RING_N = 3*PLANET_N
 
 def get_planetary_attempt(param):
     ############## RING GEAR ##############
@@ -612,17 +612,17 @@ def get_planetary_attempt(param):
         return wave/2+3
 
     def get_r_vs_t_smooth(N):
-        rotations = 4
+        rotations = 3
         if N%rotations != 0:
             print('WARNING: N is not a multiple of rotations in get_r_vs_t_smooth')
         #t = rotations*((t+0.125)%(1/rotations))
 
         points = np.array([
-            (0.0, 1.0), (0.15, param), (0.4, 1.1), (0.8, 2.1)#, (0.6, 1.2), (0.75, 1.6)
+            (0.0, 1.0), (0.15, param), (0.4, 1.1), (0.8, 1.1)#, (0.6, 1.2), (0.75, 1.6)
         ])
         # TODO think about the value of QUANTIZATION. Can we do better then hard-coding?
         temp = Interp(points[:, 0]/rotations, points[:, 1], 1/rotations)
-        smoothing = 0.2 / rotations
+        smoothing = 0.3 / rotations
         QUANTIZATION = 1000
         def fun(t):
             samples_x = np.linspace(t-smoothing/2, t+smoothing/2, QUANTIZATION)
@@ -655,7 +655,7 @@ def get_planetary_attempt(param):
         new_center_schedule = Interp.from_fun(new_center_schedule, RING_N, 0, 1, 1)
 
         return MeshingInfo(ring, new_center_schedule,
-                           new_num_rotations=1, num_rotations=4,
+                           new_num_rotations=1, num_rotations=3,
                            new_outer=False,
                            outer=True)
 
@@ -701,8 +701,7 @@ def get_planetary_attempt_wrapper(param):
     return opt
 
 #result = binary_search(get_planetary_attempt_wrapper, -0.6, -0.8, 0, visualize=False)
-# TODO try 1.0 to 1.6
-result = binary_search(get_planetary_attempt_wrapper, 1.7, 2.7, 1, visualize=True)
+result = binary_search(get_planetary_attempt_wrapper, 1.0, 1.6, 1, visualize=True)
 #result = 1.103125
 print()
 print('\thard-won result is', result)
