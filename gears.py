@@ -618,11 +618,11 @@ def get_planetary_attempt(param):
         #t = rotations*((t+0.125)%(1/rotations))
 
         points = np.array([
-            (0.0, 1.0), (0.15, param), (0.4, 1.2), (0.6, 1.8), (0.8, 1.2), (0.9, 1.5)
+            (0.0, 1.0), (0.15, param), (0.4, 1.1), (0.8, 2.1)#, (0.6, 1.2), (0.75, 1.6)
         ])
         # TODO think about the value of QUANTIZATION. Can we do better then hard-coding?
         temp = Interp(points[:, 0]/rotations, points[:, 1], 1/rotations)
-        smoothing = 0.1 / rotations
+        smoothing = 0.2 / rotations
         QUANTIZATION = 1000
         def fun(t):
             samples_x = np.linspace(t-smoothing/2, t+smoothing/2, QUANTIZATION)
@@ -660,7 +660,7 @@ def get_planetary_attempt(param):
                            outer=True)
 
     # binary search parameters are annoying to keep changing
-    res = ring.get_meshing_gear(get_mi_planet, 0.6, 1.2)
+    res = ring.get_meshing_gear(get_mi_planet, 0.7, 1.3)
     #res = ring.get_meshing_gear_attempt(get_mi_planet(1.7409096717834474))
     #res = ring.get_meshing_gear_attempt(get_mi_planet(2.0))
     #res = ring.get_meshing_gear_attempt(get_mi_planet(1.985703058540821))
@@ -702,8 +702,8 @@ def get_planetary_attempt_wrapper(param):
 
 #result = binary_search(get_planetary_attempt_wrapper, -0.6, -0.8, 0, visualize=False)
 # TODO try 1.0 to 1.6
-#result = binary_search(get_planetary_attempt_wrapper, 1.0, 1.6, 1, visualize=True)
-result = 1.103125
+result = binary_search(get_planetary_attempt_wrapper, 1.7, 2.7, 1, visualize=True)
+#result = 1.103125
 print()
 print('\thard-won result is', result)
 #exit()
