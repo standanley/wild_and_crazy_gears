@@ -104,7 +104,7 @@ def binary_search_core(fun, target, a, b, N):
         return binary_search_core(fun, target, a, c, N - 1)
 
 
-def binary_search(fun, minimum, maximum, target, N=15, visualize=False):
+def binary_search(fun, minimum, maximum, target, N=10, visualize=False):
     if visualize:
         print('target is', target)
         M = 5
@@ -268,7 +268,7 @@ class Gear:
         return xs, ys
 
     def set_up_animation(self, ax):
-        curve, = ax.plot([0, 5], [0, 5], '-')
+        curve, = ax.plot([0, 5], [0, 5], '+')
         #spokes, = ax.plot([0, 3], [0, 3])
         #ax.plot([0], [0], 'x')
         SIZE = 2
@@ -582,7 +582,7 @@ class Gear:
 
 
 
-PLANET_N = 800
+PLANET_N = 100
 RING_N = 4*PLANET_N
 
 def get_planetary_attempt(param):
@@ -618,11 +618,11 @@ def get_planetary_attempt(param):
         #t = rotations*((t+0.125)%(1/rotations))
 
         points = np.array([
-            (0.0, 0.93), (0.2, param), (0.25, param), (0.6, 1.6), (0.7, 1.8), (0.8, 1.8)
+            (0.0, 1.0), (0.15, param), (0.4, 1.2), (0.6, 1.8), (0.8, 1.2), (0.9, 1.5)
         ])
         # TODO think about the value of QUANTIZATION. Can we do better then hard-coding?
         temp = Interp(points[:, 0]/rotations, points[:, 1], 1/rotations)
-        smoothing = 0.15 / rotations
+        smoothing = 0.1 / rotations
         QUANTIZATION = 1000
         def fun(t):
             samples_x = np.linspace(t-smoothing/2, t+smoothing/2, QUANTIZATION)
@@ -701,8 +701,9 @@ def get_planetary_attempt_wrapper(param):
     return opt
 
 #result = binary_search(get_planetary_attempt_wrapper, -0.6, -0.8, 0, visualize=False)
-#result = binary_search(get_planetary_attempt_wrapper, 1.6, 1.9, 1, visualize=False)
-result = 1.7555572509765627
+# TODO try 1.0 to 1.6
+#result = binary_search(get_planetary_attempt_wrapper, 1.0, 1.6, 1, visualize=True)
+result = 1.103125
 print()
 print('\thard-won result is', result)
 #exit()
