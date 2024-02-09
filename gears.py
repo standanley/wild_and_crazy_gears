@@ -6,6 +6,8 @@ from functools import partial
 TAU = 2 * np.pi
 DEBUG = False
 VISUALIZE = False
+DO_VISUALIZE = False
+
 
 def get_inverse(fun, xmin, xmax, ymin, ymax, N):
     ys = np.linspace(ymin, ymax, N, endpoint=False)
@@ -52,7 +54,6 @@ class Interp:
 
         self.fun = lambda x: np.interp(x, self.xs_interp, self.ys_interp, period=self.period_x)
 
-        DO_VISUALIZE = False
         if (nonmonotonic) or (DO_VISUALIZE and len(self.ys.shape) == 1):
             self.visualize()
         #assert not nonmonotonic, 'interp is not monotonic'
@@ -64,7 +65,7 @@ class Interp:
         xs_fake = np.linspace(-2.1, 2.1, 30000)
         ys_fake = self.fun(xs_fake)
         plt.plot(xs_fake, ys_fake, '*')
-        plt.plot(self.xs, self.ys, '+')
+        plt.plot(self.xs_interp, self.ys_interp, '+')
         plt.show()
 
     @classmethod
@@ -202,8 +203,9 @@ class Gear:
         # but now I let interp() handle that because of its EPS handling
         #lengths.append(length)
         self.total_length = length
-        self.theta_vs_length = Interp(lengths, thetas, self.total_length, period_y=1)
-        print('done doing length')
+        period_y = np.round(thetas[-1] - thetas[0])
+        self.theta_vs_length = Interp(lengths, thetas, self.total_length, period_y=period_y)
+        #print('done doing length')
 
     def clone(self):
         return Gear(self.radius_vs_theta, self.rotation_schedule, self.center_schedule)
@@ -295,7 +297,7 @@ class Gear:
             return things
         #update = self.set_up_animation(ax)
         ani = FuncAnimation(fig, partial(update), frames=np.arange(0, 1, 1/200),
-                            blit=True, interval=33)
+                            blit=True, interval=100)
         plt.show()
 
 
@@ -660,11 +662,12 @@ def get_planetary_attempt(param):
 
     global VISUALIZE
     VISUALIZE = False
-    res_sun = planet.get_meshing_gear(get_mi_sun, -1.0, 0.3)
-    #res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0))
-    #res_sun = planet.animate_meshing_gear_attempt(get_mi_sun(0.0881890560500324))
+    #res_sun = planet.get_meshing_gear(get_mi_sun, -1.0, 0.3)
+    ##res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0))
+    ##res_sun = planet.animate_meshing_gear_attempt(get_mi_sun(0.0881890560500324))
+    res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0))
     sun = res_sun.get_gear()
-    return res_sun.param_opt, (ring, planet, sun)
+    return sun.radius_vs_theta.xs[-1], (ring, planet, sun)
     #return 0, (ring, planet, sun)
 
 def get_planetary_attempt_wrapper(param):
@@ -672,14 +675,15 @@ def get_planetary_attempt_wrapper(param):
     return opt
 
 #result = binary_search(get_planetary_attempt_wrapper, -0.6, -0.8, 0, visualize=False)
-#result = binary_search(get_planetary_attempt_wrapper, -0.8, -0.35, 0, visualize=False)
-result = -0.7567597866058349
+#result = binary_search(get_planetary_attempt_wrapper, -0.8, -0.35, 1, visualize=False)
+#result = -0.7567597866058349
+result = -0.755407953262329
 print('hard-won result is', result)
 #exit()
 # hard-won result is -0.7506996726989748
 # the radius of the planet's orbit is 1.999993, which is probably supposed to be exactly 2. I cannot fathom why
 _, (ring, planet, sun) = get_planetary_attempt(result)
-Gear.animate([ring, planet, sun])
+#Gear.animate([ring, planet, sun])
 
 ############ PLANET GEAR B #################
 
@@ -689,7 +693,13 @@ new_ys = (1-sun.rotation_schedule.ys) / 5
 #DEBUG=True
 # I have no idea why I need this cutoff ... might be related to imperfection in the parameters?
 CUTOFF = 2
-sun_rotation_inverse = Interp(new_ys[:-CUTOFF], sun.rotation_schedule.xs[:-CUTOFF], 1, period_y=1)
+#sun_rotation_inverse = Interp(new_ys[:-CUTOFF], sun.rotation_schedule.xs[:-CUTOFF], 1, period_y=1)
+
+def temp():
+    global DO_VISUALIZE
+    DO_VISUALIZE = False
+temp()
+sun_rotation_inverse = Interp(new_ys, sun.rotation_schedule.xs, 1, period_y=1)
 
 #ts = np.linspace(-1.5, 2.5, 5000)
 #rotations = sun_rotation_inverse(ts)
@@ -714,8 +724,9 @@ def get_mi_planetB(R):
 
 # binary search parameters are annoying to keep changing
 #res_planetB = ring.get_meshing_gear(get_mi_planetB, 0.1, 1.99)
-#res_planetB = ring.get_meshing_gear(get_mi_planetB, 1.9, 2.1)
-res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(2))
+res_planetB = ring.get_meshing_gear(get_mi_planetB, 1.9, 2.1)
+#res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(2.0011800765991206))
+#res_planetB = ring.get_meshing_gear_attempt(get_mi_planetB(2.0))
 planetB = res_planetB.get_gear()
 
 
@@ -734,9 +745,12 @@ def get_mi_sunB(R):
                        outer=False)
 
 #res_sunB = planetB.get_meshing_gear(get_mi_sunB, -0.1, 0.1)
-res_sunB = planetB.get_meshing_gear_attempt(get_mi_sunB(0))
-sunB = res_sunB.get_gear()
+#res_sunB = planetB.get_meshing_gear_attempt(get_mi_sunB(0))
+#res_sunB = planetB.animate_meshing_gear_attempt(get_mi_sunB(-1.144409179681095e-06))
+#sunB = res_sunB.get_gear()
 
+sunB = sun.clone()
+sunB.rotation_schedule = Interp.from_fun_xs(lambda t: -5.0 * t, sunB.radius_vs_theta.xs, 1, 1)
 
 
 planet_clones = []
