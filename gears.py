@@ -104,7 +104,7 @@ def binary_search_core(fun, target, a, b, N):
         return binary_search_core(fun, target, a, c, N - 1)
 
 
-def binary_search(fun, minimum, maximum, target, N=10, visualize=False):
+def binary_search(fun, minimum, maximum, target, N=15, visualize=False):
     if visualize:
         print('target is', target)
         M = 5
@@ -230,14 +230,13 @@ class Gear:
         plt.show()
 
     def get_curve_points(self, time=0):
-        xs = self.radius_vs_theta.xs
-        #DRAW_N = len(xs)
-        #thetas = np.linspace(xs[0], xs[-1], DRAW_N, endpoint=False)
-        thetas = xs
+        thetas = self.radius_vs_theta.xs
+        if len(self.radius_vs_theta.xs) > 100:
+            DRAW_N = 100
+            thetas = np.linspace(thetas[0], thetas[-1], DRAW_N, endpoint=False)
         thetas = np.append(thetas, thetas[0])
         rs = self.radius_vs_theta(thetas)
         rotation = self.rotation_schedule(time)
-        center = self.center_schedule(time)
         xs = rs * np.cos(thetas*TAU + rotation*TAU)
         ys = rs * np.sin(thetas*TAU + rotation*TAU)
 
@@ -302,7 +301,7 @@ class Gear:
             return things
         #update = self.set_up_animation(ax)
         ani = FuncAnimation(fig, partial(update), frames=np.arange(0, 1, 1/200),
-                            blit=True, interval=100)
+                            blit=True, interval=33)
         plt.show()
 
 
@@ -583,7 +582,7 @@ class Gear:
 
 
 
-PLANET_N = 100
+PLANET_N = 800
 RING_N = 4*PLANET_N
 
 def get_planetary_attempt(param):
@@ -619,7 +618,7 @@ def get_planetary_attempt(param):
         #t = rotations*((t+0.125)%(1/rotations))
 
         points = np.array([
-            (0.0, 1.0), (0.2, param), (0.25, param), (0.6, 1.10), (0.7, 1.8), (0.8, 1.8)
+            (0.0, 0.93), (0.2, param), (0.25, param), (0.6, 1.6), (0.7, 1.8), (0.8, 1.8)
         ])
         # TODO think about the value of QUANTIZATION. Can we do better then hard-coding?
         temp = Interp(points[:, 0]/rotations, points[:, 1], 1/rotations)
@@ -702,9 +701,8 @@ def get_planetary_attempt_wrapper(param):
     return opt
 
 #result = binary_search(get_planetary_attempt_wrapper, -0.6, -0.8, 0, visualize=False)
-result = binary_search(get_planetary_attempt_wrapper, 1.6, 3.0, 1, visualize=False)
-#result = -0.7567597866058349
-#result = -0.755407953262329
+#result = binary_search(get_planetary_attempt_wrapper, 1.6, 1.9, 1, visualize=False)
+result = 1.7555572509765627
 print()
 print('\thard-won result is', result)
 #exit()
