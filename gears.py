@@ -104,7 +104,7 @@ def binary_search_core(fun, target, a, b, N):
         return binary_search_core(fun, target, a, c, N - 1)
 
 
-def binary_search(fun, minimum, maximum, target, N=20, visualize=False):
+def binary_search(fun, minimum, maximum, target, N=10, visualize=False):
     if visualize:
         print('target is', target)
         M = 5
@@ -680,9 +680,9 @@ def get_planetary_attempt_wrapper(param):
     return opt
 
 #result = binary_search(get_planetary_attempt_wrapper, -0.6, -0.8, 0, visualize=False)
-#result = binary_search(get_planetary_attempt_wrapper, -0.8, -0.35, 1, visualize=False)
+result = binary_search(get_planetary_attempt_wrapper, -0.8, -0.35, 1, visualize=False)
 #result = -0.7567597866058349
-result = -0.755407953262329
+#result = -0.755407953262329
 print()
 print('\thard-won result is', result)
 #exit()
