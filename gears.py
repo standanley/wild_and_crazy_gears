@@ -629,11 +629,11 @@ def get_planetary_attempt(param):
 
         points = np.array([
             #(0.0, 1.0), (0.15, param), (0.4, 1.1), (0.8, 1.8)#, (0.6, 1.2), (0.75, 1.6)
-            (0.0, 1.0), (0.2, 1.0), (0.25, param), (0.7, param*0.85)
+            (0.0, 1.0), (0.15, 1.0), (0.2, param), (0.9, param*0.80)
         ])
         # TODO think about the value of QUANTIZATION. Can we do better then hard-coding?
         temp = Interp(points[:, 0]/rotations, points[:, 1], 1/rotations)
-        smoothing = 0.15 / rotations
+        smoothing = 0.2 / rotations
         QUANTIZATION = 1000
         def fun(t):
             samples_x = np.linspace(t-smoothing/2, t+smoothing/2, QUANTIZATION)
@@ -715,10 +715,10 @@ def get_planetary_attempt_wrapper(param):
     opt, _ = get_planetary_attempt(param)
     return opt
 
-#result = binary_search(get_planetary_attempt_wrapper, 1.3, 1.6, 1/PLANETARY_S, visualize=False)
-result = 1.5417449951171878
+result = binary_search(get_planetary_attempt_wrapper, 1.3, 1.8, 1/PLANETARY_S, visualize=False)
+#result = 1.5417449951171878
 print()
-#print('\thard-won result is', result)
+print('\thard-won result is', result)
 #exit()
 # hard-won result is -0.7506996726989748
 # the radius of the planet's orbit is 1.999993, which is probably supposed to be exactly 2. I cannot fathom why
