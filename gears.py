@@ -107,7 +107,7 @@ def binary_search_core(fun, target, a, b, N):
 def binary_search(fun, minimum, maximum, target, N=15, visualize=False):
     if visualize:
         print('target is', target)
-        M = 5
+        M = 15
         xs = np.linspace(minimum, maximum, M)
         results = []
         for i in range(M):
@@ -269,17 +269,17 @@ class Gear:
 
     def set_up_animation(self, ax):
         curve, = ax.plot([0, 5], [0, 5], '-')
-        spokes, = ax.plot([0, 3], [0, 3])
-        ax.plot([0], [0], 'x')
-        SIZE = 5
+        #spokes, = ax.plot([0, 3], [0, 3])
+        #ax.plot([0], [0], 'x')
+        SIZE = 2
         ax.set_xlim([-SIZE, SIZE])
         ax.set_ylim([-SIZE, SIZE])
         def update(frame_time):
             xs, ys = self.get_curve_points(frame_time)
             curve.set_data(xs, ys)
             xs_s, ys_s = self.get_spoke_points(frame_time)
-            spokes.set_data(xs_s, ys_s)
-            return [curve, spokes]
+            #spokes.set_data(xs_s, ys_s)
+            return [curve]#, spokes]
         return update
 
 
@@ -549,6 +549,8 @@ class Gear:
         period_y = np.round((new_rotations_global[-1] - new_rotations_global[0])/snap)*snap
         new_rotation_schedule = Interp(ts, new_rotations_global, 1, period_y=period_y)
 
+        #if abs(final_new_contact_local - 0.5) < 0.2:
+        #    print('final new contact local', final_new_contact_local)
         if final_new_contact_local is None:
             # we somehow didnt make it to the end of the old gear within the time
             final_new_contact_local = new_contact_local
@@ -590,7 +592,7 @@ PLANETARY_R = 5
 PLANETARY_P = 1
 PLANETARY_S = 2
 
-PLANET_N = 400
+PLANET_N = 2*5*7*2
 RING_N = PLANETARY_R*PLANET_N
 
 def get_planetary_attempt(param):
@@ -627,11 +629,11 @@ def get_planetary_attempt(param):
 
         points = np.array([
             #(0.0, 1.0), (0.15, param), (0.4, 1.1), (0.8, 1.8)#, (0.6, 1.2), (0.75, 1.6)
-            (0.0, 1.0), (0.15, 1.0), (0.3, param), (0.7, param)
+            (0.0, 1.0), (0.2, 1.0), (0.25, param), (0.7, param*0.85)
         ])
         # TODO think about the value of QUANTIZATION. Can we do better then hard-coding?
         temp = Interp(points[:, 0]/rotations, points[:, 1], 1/rotations)
-        smoothing = 0.2 / rotations
+        smoothing = 0.15 / rotations
         QUANTIZATION = 1000
         def fun(t):
             samples_x = np.linspace(t-smoothing/2, t+smoothing/2, QUANTIZATION)
@@ -705,17 +707,18 @@ def get_planetary_attempt(param):
     #res_sun = planet.animate_meshing_gear_attempt(get_mi_sun(0))
     #res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0))
     sun = res_sun.get_gear()
-    return sun.radius_vs_theta.xs[-1], (ring, planet, sun)
+    opt = res_sun.new_contact_local
+    return opt, (ring, planet, sun)
     #return 0, (ring, planet, sun)
 
 def get_planetary_attempt_wrapper(param):
     opt, _ = get_planetary_attempt(param)
     return opt
 
-#result = binary_search(get_planetary_attempt_wrapper, 1.2, 2.0, 1/PLANETARY_S, visualize=True)
-result = 1.4568603515624998
+#result = binary_search(get_planetary_attempt_wrapper, 1.3, 1.6, 1/PLANETARY_S, visualize=False)
+result = 1.5417449951171878
 print()
-print('\thard-won result is', result)
+#print('\thard-won result is', result)
 #exit()
 # hard-won result is -0.7506996726989748
 # the radius of the planet's orbit is 1.999993, which is probably supposed to be exactly 2. I cannot fathom why
