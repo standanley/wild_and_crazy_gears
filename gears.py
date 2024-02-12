@@ -104,10 +104,10 @@ def binary_search_core(fun, target, a, b, N):
         return binary_search_core(fun, target, a, c, N - 1)
 
 
-def binary_search(fun, minimum, maximum, target, N=10, visualize=False):
+def binary_search(fun, minimum, maximum, target, N=15, visualize=False):
     if visualize:
         print('target is', target)
-        M = 15
+        M = 5
         xs = np.linspace(minimum, maximum, M)
         results = []
         for i in range(M):
@@ -231,9 +231,9 @@ class Gear:
 
     def get_curve_points(self, time=0):
         thetas = self.radius_vs_theta.xs
-        if len(self.radius_vs_theta.xs) > 100:
-            DRAW_N = 100
-            thetas = np.linspace(thetas[0], thetas[-1], DRAW_N, endpoint=False)
+        if True or len(self.radius_vs_theta.xs) > 100:
+            DRAW_N = 1000
+            thetas = np.linspace(0, 1, DRAW_N, endpoint=False)
         thetas = np.append(thetas, thetas[0])
         rs = self.radius_vs_theta(thetas)
         rotation = self.rotation_schedule(time)
@@ -268,10 +268,10 @@ class Gear:
         return xs, ys
 
     def set_up_animation(self, ax):
-        curve, = ax.plot([0, 5], [0, 5], '+')
+        curve, = ax.plot([0, 5], [0, 5], '-')
         #spokes, = ax.plot([0, 3], [0, 3])
         #ax.plot([0], [0], 'x')
-        SIZE = 2
+        SIZE = 5
         ax.set_xlim([-SIZE, SIZE])
         ax.set_ylim([-SIZE, SIZE])
         def update(frame_time):
@@ -301,12 +301,12 @@ class Gear:
             return things
         #update = self.set_up_animation(ax)
         ani = FuncAnimation(fig, partial(update), frames=np.arange(0, 1, 1/200),
-                            blit=True, interval=33)
+                            blit=True, interval=250)
         plt.show()
 
 
     @classmethod
-    def get_meshing_gear(cls, get_mi, param_min, param_max):
+    def get_meshing_gear(cls, get_mi, param_min, param_max, visualize=False):
         mi_min, mi_max = get_mi(param_min), get_mi(param_max)
 
         # target might be positive or negative, but it's too difficult to determine that
@@ -318,7 +318,7 @@ class Gear:
             res = cls.get_meshing_gear_attempt(mi)
             return abs(res.new_contact_local)
 
-        param_opt = binary_search(fun, param_min, param_max, target, visualize=VISUALIZE)
+        param_opt = binary_search(fun, param_min, param_max, target, visualize=visualize)
         global DEBUG
         #DEBUG = True
         res = cls.get_meshing_gear_attempt(get_mi(param_opt))
@@ -489,6 +489,9 @@ class Gear:
                 new_contact_ratio_flip = 1 if mi.new_outer ^ mi.outer else -1
                 # TODO I'm averaging r and r_prev here, but I think the proper math is more complicated
                 contact_rate_ratio = (r+r_prev) / (new_r+new_r_prev) * new_contact_ratio_flip
+                if abs(contact_rate_ratio) > 100:
+                    # this is no good, probably new_radius is hitting zero
+                    raise ValueError('Gear ratio got above 100 to', contact_rate_ratio, 'old r', r, 'new r', new_r)
                 d_new_contact_local = d_contact_local * contact_rate_ratio
                 new_contact_local += d_new_contact_local
 
@@ -542,7 +545,8 @@ class Gear:
         # keep in mind that the time will end at 1/num_rotations, and we should have gotten through
         #print('period y', 1/mi.new_num_rotations)
         # TODO actually I think calculation this is complicated
-        period_y = np.round(new_rotations_global[-1] - new_rotations_global[0])
+        snap = 1/mi.new_num_rotations
+        period_y = np.round((new_rotations_global[-1] - new_rotations_global[0])/snap)*snap
         new_rotation_schedule = Interp(ts, new_rotations_global, 1, period_y=period_y)
 
         if final_new_contact_local is None:
@@ -553,8 +557,8 @@ class Gear:
 
 
 
-#SIMPLE_N = 20
-#rvt1 = lambda t: 2+1*np.sin(t*TAU)
+#SIMPLE_N = 50
+#rvt1 = lambda t: 1+0.5*np.sin(t*TAU)
 #rvt1 = Interp.from_fun(rvt1, SIMPLE_N, 0, 1, 1, 1)
 #g1 = Gear(rvt1)
 #
@@ -569,21 +573,25 @@ class Gear:
 #    new_center_schedule = Interp.from_fun(new_center_schedule, SIMPLE_N, 0, 1, 1)
 #
 #    return MeshingInfo(g1, new_center_schedule,
-#                       new_num_rotations=1, num_rotations=1,
+#                       new_num_rotations=2, num_rotations=1,
 #                       new_outer=False,
 #                       outer=False)
 #
 #
-##res = g1.get_meshing_gear(get_mi_g2, 3, 6)
-#res = g1.get_meshing_gear_attempt(get_mi_g2(4.43))
+##res = g1.get_meshing_gear(get_mi_g2, 2, 6, visualize=True)
+#res = g1.get_meshing_gear_attempt(get_mi_g2(3.172))
 #g2 = res.get_gear()
 #Gear.animate([g1, g2])
 #exit()
 
 
 
-PLANET_N = 100
-RING_N = 3*PLANET_N
+PLANETARY_R = 5
+PLANETARY_P = 1
+PLANETARY_S = 2
+
+PLANET_N = 400
+RING_N = PLANETARY_R*PLANET_N
 
 def get_planetary_attempt(param):
     ############## RING GEAR ##############
@@ -612,17 +620,17 @@ def get_planetary_attempt(param):
         return wave/2+3
 
     def get_r_vs_t_smooth(N):
-        rotations = 3
+        rotations = PLANETARY_R
         if N%rotations != 0:
             print('WARNING: N is not a multiple of rotations in get_r_vs_t_smooth')
         #t = rotations*((t+0.125)%(1/rotations))
 
         points = np.array([
-            (0.0, 1.0), (0.15, param), (0.4, 1.1), (0.8, 1.1)#, (0.6, 1.2), (0.75, 1.6)
+            (0.0, 1.0), (0.15, param), (0.4, 1.1), (0.8, 1.8)#, (0.6, 1.2), (0.75, 1.6)
         ])
         # TODO think about the value of QUANTIZATION. Can we do better then hard-coding?
         temp = Interp(points[:, 0]/rotations, points[:, 1], 1/rotations)
-        smoothing = 0.3 / rotations
+        smoothing = 0.1 / rotations
         QUANTIZATION = 1000
         def fun(t):
             samples_x = np.linspace(t-smoothing/2, t+smoothing/2, QUANTIZATION)
@@ -655,17 +663,20 @@ def get_planetary_attempt(param):
         new_center_schedule = Interp.from_fun(new_center_schedule, RING_N, 0, 1, 1)
 
         return MeshingInfo(ring, new_center_schedule,
-                           new_num_rotations=1, num_rotations=3,
+                           new_num_rotations=1, num_rotations=PLANETARY_R,
                            new_outer=False,
                            outer=True)
 
+    global DO_VISUALIZE
+    DO_VISUALIZE = False
+
     # binary search parameters are annoying to keep changing
     res = ring.get_meshing_gear(get_mi_planet, 0.7, 1.3)
-    #res = ring.get_meshing_gear_attempt(get_mi_planet(1.7409096717834474))
+    #res = ring.get_meshing_gear_attempt(get_mi_planet(1.0697265625))
     #res = ring.get_meshing_gear_attempt(get_mi_planet(2.0))
     #res = ring.get_meshing_gear_attempt(get_mi_planet(1.985703058540821))
     #res = ring.animate_meshing_gear_attempt(get_mi_planet(2.0))
-    planet_param = res.param_opt
+    #planet_param = res.param_opt
     planet = res.get_gear()
 
 
@@ -682,16 +693,16 @@ def get_planetary_attempt(param):
         new_center_schedule = Interp.from_fun(new_center_schedule, RING_N, 0, 1, 1)
 
         return MeshingInfo(planet, new_center_schedule,
-                           new_num_rotations=1, num_rotations=1,
+                           new_num_rotations=PLANETARY_S, num_rotations=1,
                            new_outer=False,
                            outer=False)
 
     global VISUALIZE
     VISUALIZE = False
     #res_sun = planet.get_meshing_gear(get_mi_sun, -1.0, 0.3)
-    ##res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0))
-    ##res_sun = planet.animate_meshing_gear_attempt(get_mi_sun(0.0881890560500324))
     res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0))
+    #res_sun = planet.animate_meshing_gear_attempt(get_mi_sun(0))
+    #res_sun = planet.get_meshing_gear_attempt(get_mi_sun(0))
     sun = res_sun.get_gear()
     return sun.radius_vs_theta.xs[-1], (ring, planet, sun)
     #return 0, (ring, planet, sun)
@@ -700,37 +711,39 @@ def get_planetary_attempt_wrapper(param):
     opt, _ = get_planetary_attempt(param)
     return opt
 
-#result = binary_search(get_planetary_attempt_wrapper, -0.6, -0.8, 0, visualize=False)
-result = binary_search(get_planetary_attempt_wrapper, 1.0, 1.6, 1, visualize=True)
-#result = 1.103125
+#result = binary_search(get_planetary_attempt_wrapper, 1.7, 2.1, 1/PLANETARY_S, visualize=True)
+result = 1.761279296875
 print()
 print('\thard-won result is', result)
 #exit()
 # hard-won result is -0.7506996726989748
 # the radius of the planet's orbit is 1.999993, which is probably supposed to be exactly 2. I cannot fathom why
 _, (ring, planet, sun) = get_planetary_attempt(result)
-#Gear.animate([ring, planet, sun])
+Gear.animate([ring, planet, sun])
 
 ############ PLANET GEAR B #################
 
+#print('visualizing old sun rotation')
+#sun.rotation_schedule.visualize()
 
-EPS = 0
-new_ys = (1-sun.rotation_schedule.ys) / 5
-#DEBUG=True
-# I have no idea why I need this cutoff ... might be related to imperfection in the parameters?
-CUTOFF = 2
-#sun_rotation_inverse = Interp(new_ys[:-CUTOFF], sun.rotation_schedule.xs[:-CUTOFF], 1, period_y=1)
 
 def temp():
     global DO_VISUALIZE
     DO_VISUALIZE = False
 temp()
-sun_rotation_inverse = Interp(new_ys, sun.rotation_schedule.xs, 1, period_y=1)
+#DO_VISUALIZE = True
+print('Doing rotation inverse')
 
-#ts = np.linspace(-1.5, 2.5, 5000)
-#rotations = sun_rotation_inverse(ts)
-#plt.plot(ts, rotations, '*')
-#plt.show()
+# conceptually we map new ts to sun rotations, then sun rotations to old ts. That's how we get time warp from ts to ts
+NUM_SUN_ROTATIONS = -1 * (PLANETARY_R + PLANETARY_S) / PLANETARY_S
+r_start, r_end = sun.rotation_schedule.ys[0], sun.rotation_schedule.ys[-1]
+if abs(r_end - r_start - NUM_SUN_ROTATIONS) > 0.1:
+    print('WARNING something is wrong with NUM_SUN_ROTATIONS',
+          NUM_SUN_ROTATIONS, r_start, r_end)
+new_ts = (sun.rotation_schedule.ys - r_start) / NUM_SUN_ROTATIONS
+old_ts = sun.rotation_schedule.xs
+sun_rotation_inverse = Interp(new_ts, old_ts, 1, period_y=1)
+
 
 
 def get_mi_planetB(R):
@@ -760,7 +773,9 @@ def get_mi_planetB(R):
 #new_center_schedule_v = Interp.from_fun_xs(new_center_schedule_v, sun_rotation_inverse.xs, 1, 1)
 ##planetB_center_schedule =
 
+print('Cloning to create planetB')
 planetB = planet.clone()
+print('Time warping planetB')
 planetB.time_warp(sun_rotation_inverse)
 
 
@@ -774,7 +789,7 @@ def get_mi_sunB(R):
     new_center_schedule_v = Interp.from_fun_xs(new_center_schedule_v, sun_rotation_inverse.xs, 1, 1)
 
     return MeshingInfo(planetB, new_center_schedule_v,
-                       new_num_rotations=1, num_rotations=1,
+                       new_num_rotations=PLANETARY_S, num_rotations=1,
                        new_outer=False,
                        outer=False)
 
@@ -783,13 +798,21 @@ def get_mi_sunB(R):
 #res_sunB = planetB.animate_meshing_gear_attempt(get_mi_sunB(-1.144409179681095e-06))
 #sunB = res_sunB.get_gear()
 
+NUM_PLANETS = PLANETARY_R + PLANETARY_S
+
+DO_VISUALIZE = False
+print('Cloning to create sunB')
 sunB = sun.clone()
-sunB.rotation_schedule = Interp.from_fun_xs(lambda t: -5.0 * t, sunB.radius_vs_theta.xs, 1, 1)
+print('Time warping sunB')
+# TODO consider whether I should hard-code a normal sun rotation schedule here
+sunB.time_warp(sun_rotation_inverse)
+#sunB.rotation_schedule = Interp.from_fun_xs(lambda t: -NUM_PLANETS/PLANETARY_S * t, sunB.radius_vs_theta.xs, 1, 1)
 
 
+print('Creating planet clones')
 planet_clones = []
-for i in range(1, 5):
+for i in range(1, NUM_PLANETS):
     p = planetB.clone()
-    p.time_shift(i/5)
+    p.time_shift(i/NUM_PLANETS)
     planet_clones.append(p)
 Gear.animate([ring, planetB, sunB, *planet_clones])
