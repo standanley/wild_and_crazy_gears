@@ -232,7 +232,7 @@ class Gear:
     def get_curve_points(self, time=0):
         thetas = self.radius_vs_theta.xs
         if True or len(self.radius_vs_theta.xs) > 100:
-            DRAW_N = 1000
+            DRAW_N = 100
             thetas = np.linspace(0, 1, DRAW_N, endpoint=False)
         thetas = np.append(thetas, thetas[0])
         rs = self.radius_vs_theta(thetas)
@@ -249,7 +249,7 @@ class Gear:
 
     def get_spoke_points(self, time=0):
         #lengths = np.linspace(0, self.total_length, 32, endpoint=False)
-        lengths = np.arange(0, self.total_length, 0.5)
+        lengths = np.arange(0, self.total_length, 0.15)
         thetas = self.theta_vs_length(lengths)
         rs = self.radius_vs_theta(thetas)
 
@@ -269,8 +269,8 @@ class Gear:
 
     def set_up_animation(self, ax):
         curve, = ax.plot([0, 5], [0, 5], '-')
-        #spokes, = ax.plot([0, 3], [0, 3])
-        #ax.plot([0], [0], 'x')
+        spokes, = ax.plot([0, 3], [0, 3])
+        ax.plot([0], [0], 'x')
         SIZE = 5
         ax.set_xlim([-SIZE, SIZE])
         ax.set_ylim([-SIZE, SIZE])
@@ -278,8 +278,8 @@ class Gear:
             xs, ys = self.get_curve_points(frame_time)
             curve.set_data(xs, ys)
             xs_s, ys_s = self.get_spoke_points(frame_time)
-            #spokes.set_data(xs_s, ys_s)
-            return [curve]#, spokes]
+            spokes.set_data(xs_s, ys_s)
+            return [curve, spokes]
         return update
 
 
@@ -301,7 +301,7 @@ class Gear:
             return things
         #update = self.set_up_animation(ax)
         ani = FuncAnimation(fig, partial(update), frames=np.arange(0, 1, 1/200),
-                            blit=True, interval=250)
+                            blit=True, interval=100)
         plt.show()
 
 
@@ -626,11 +626,12 @@ def get_planetary_attempt(param):
         #t = rotations*((t+0.125)%(1/rotations))
 
         points = np.array([
-            (0.0, 1.0), (0.15, param), (0.4, 1.1), (0.8, 1.8)#, (0.6, 1.2), (0.75, 1.6)
+            #(0.0, 1.0), (0.15, param), (0.4, 1.1), (0.8, 1.8)#, (0.6, 1.2), (0.75, 1.6)
+            (0.0, 1.0), (0.15, 1.0), (0.3, param), (0.7, param)
         ])
         # TODO think about the value of QUANTIZATION. Can we do better then hard-coding?
         temp = Interp(points[:, 0]/rotations, points[:, 1], 1/rotations)
-        smoothing = 0.1 / rotations
+        smoothing = 0.2 / rotations
         QUANTIZATION = 1000
         def fun(t):
             samples_x = np.linspace(t-smoothing/2, t+smoothing/2, QUANTIZATION)
@@ -711,8 +712,8 @@ def get_planetary_attempt_wrapper(param):
     opt, _ = get_planetary_attempt(param)
     return opt
 
-#result = binary_search(get_planetary_attempt_wrapper, 1.7, 2.1, 1/PLANETARY_S, visualize=True)
-result = 1.761279296875
+#result = binary_search(get_planetary_attempt_wrapper, 1.2, 2.0, 1/PLANETARY_S, visualize=True)
+result = 1.4568603515624998
 print()
 print('\thard-won result is', result)
 #exit()
