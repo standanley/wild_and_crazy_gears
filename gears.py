@@ -628,12 +628,12 @@ def get_planetary_attempt(param):
         #t = rotations*((t+0.125)%(1/rotations))
 
         points = np.array([
-            #(0.0, 1.1), (0.1, 1.0), (0.3, param), (0.55, param*0.9), (0.6, 1.2), (0.65, 1.1), (0.9, 1.9), (0.95, 1.8)#, (0.6, 1.2), (0.75, 1.6)
-            (0.0, 1.0), (0.2, 1.0), (0.3, param), (0.7, param*0.80)
+            (0.0, 1.1), (0.1, 1.0), (0.3, param), (0.55, param*0.9), (0.6, 1.2), (0.65, 1.1), (0.9, 1.9), (0.95, 1.8)#, (0.6, 1.2), (0.75, 1.6)
+            #(0.0, 1.0), (0.2, 1.0), (0.3, param), (0.7, param*0.80)
         ])
         # TODO think about the value of QUANTIZATION. Can we do better then hard-coding?
         temp = Interp(points[:, 0]/rotations, points[:, 1], 1/rotations)
-        smoothing = 0.20 / rotations
+        smoothing = 0.15 / rotations
         QUANTIZATION = 1000
         def fun(t):
             samples_x = np.linspace(t-smoothing/2, t+smoothing/2, QUANTIZATION)
@@ -715,7 +715,7 @@ def get_planetary_attempt_wrapper(param):
     opt, _ = get_planetary_attempt(param)
     return opt
 
-result = binary_search(get_planetary_attempt_wrapper, 1.5, 2.0, 1/PLANETARY_S, visualize=False)
+result = binary_search(get_planetary_attempt_wrapper, 1.5, 2.8, 1/PLANETARY_S, visualize=False)
 #result = 1.5417449951171878
 print()
 print('\thard-won result is', result)
