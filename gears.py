@@ -591,6 +591,8 @@ class Gear:
 PLANETARY_R = 5
 PLANETARY_P = 1
 PLANETARY_S = 1
+PLANET_STRIDE = 2
+assert (PLANETARY_R + PLANETARY_S) % PLANET_STRIDE == 0
 
 PLANET_N = 80
 RING_N = PLANETARY_R*PLANET_N
@@ -628,8 +630,8 @@ def get_planetary_attempt(param):
         #t = rotations*((t+0.125)%(1/rotations))
 
         points = np.array([
-            (0.0, 1.1), (0.1, 1.0), (0.3, param), (0.55, param*0.9), (0.6, 1.2), (0.65, 1.1), (0.9, 1.9), (0.95, 1.8)#, (0.6, 1.2), (0.75, 1.6)
-            #(0.0, 1.0), (0.2, 1.0), (0.3, param), (0.7, param*0.80)
+            #(0.0, 1.1), (0.1, 1.0), (0.3, param), (0.55, param*0.9), (0.6, 1.2), (0.65, 1.1), (0.9, 1.9), (0.95, 1.8)#, (0.6, 1.2), (0.75, 1.6)
+            (0.0, 1.1), (0.2, 1.0), (0.4, param), (0.7, param*0.80)
         ])
         # TODO think about the value of QUANTIZATION. Can we do better then hard-coding?
         temp = Interp(points[:, 0]/rotations, points[:, 1], 1/rotations)
@@ -815,7 +817,7 @@ sunB.time_warp(sun_rotation_inverse)
 
 print('Creating planet clones')
 planet_clones = []
-for i in range(1, NUM_PLANETS):
+for i in range(PLANET_STRIDE, NUM_PLANETS, PLANET_STRIDE):
     p = planetB.clone()
     p.time_shift(i/NUM_PLANETS)
     planet_clones.append(p)
