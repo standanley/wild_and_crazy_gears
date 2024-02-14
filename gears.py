@@ -590,7 +590,7 @@ class Gear:
 
 PLANETARY_R = 5
 PLANETARY_P = 1
-PLANETARY_S = 2
+PLANETARY_S = 1
 
 PLANET_N = 80
 RING_N = PLANETARY_R*PLANET_N
@@ -629,7 +629,7 @@ def get_planetary_attempt(param):
 
         points = np.array([
             #(0.0, 1.1), (0.1, 1.0), (0.3, param), (0.55, param*0.9), (0.6, 1.2), (0.65, 1.1), (0.9, 1.9), (0.95, 1.8)#, (0.6, 1.2), (0.75, 1.6)
-            (0.0, 1.0), (0.2, 1.0), (0.25, param), (0.8, param*0.80)
+            (0.0, 1.0), (0.2, 1.0), (0.3, param), (0.7, param*0.80)
         ])
         # TODO think about the value of QUANTIZATION. Can we do better then hard-coding?
         temp = Interp(points[:, 0]/rotations, points[:, 1], 1/rotations)
