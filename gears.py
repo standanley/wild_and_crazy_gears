@@ -160,19 +160,24 @@ class MeshingInfo:
 
 
 class MeshingResult:
-    def __init__(self, new_contact_local, new_radius_vs_theta, new_rotation_schedule, new_center_schedule):
-        self.new_contact_local = new_contact_local
+    def __init__(self, final_new_contact_local, new_radius_vs_theta, new_rotation_schedule, new_center_schedule,
+                 new_contacts_local):
+        self.final_new_contact_local = final_new_contact_local
         self.new_radius_vs_theta = new_radius_vs_theta
         self.new_rotation_schedule = new_rotation_schedule
         self.new_center_schedule = new_center_schedule
+        self.new_contacts_local = new_contacts_local
+        # TODO this period_y is wrong
+        self.contact_local_schedule = Interp(new_rotation_schedule.xs, new_contacts_local, new_rotation_schedule.period_x, 1)
 
     def get_gear(self):
-        return Gear(self.new_radius_vs_theta, self.new_rotation_schedule, self.new_center_schedule)
+        return Gear(self.new_radius_vs_theta, self.new_rotation_schedule, self.new_center_schedule,
+                    contact_local_schedule=self.contact_local_schedule)
 
 
 
 class Gear:
-    def __init__(self, radius_vs_theta, rotation_schedule=None, center_schedule=None):
+    def __init__(self, radius_vs_theta, rotation_schedule=None, center_schedule=None, contact_local_schedule=None):
         self.radius_vs_theta = radius_vs_theta
 
         if rotation_schedule is None:
@@ -186,6 +191,8 @@ class Gear:
             self.center_schedule = Interp.from_fun_xs(self.center_schedule, self.rotation_schedule.xs, 1)
         else:
             self.center_schedule = center_schedule
+
+        self.contact_local_schedule = contact_local_schedule
 
         thetas = self.radius_vs_theta.xs
         rs = self.radius_vs_theta.ys
@@ -554,7 +561,8 @@ class Gear:
         if final_new_contact_local is None:
             # we somehow didnt make it to the end of the old gear within the time
             final_new_contact_local = new_contact_local
-        res = MeshingResult(final_new_contact_local, new_radius_vs_theta, new_rotation_schedule, mi.new_center_schedule)
+        res = MeshingResult(final_new_contact_local, new_radius_vs_theta, new_rotation_schedule, mi.new_center_schedule,
+                            new_contacts_local)
         return res
 
 
