@@ -14,20 +14,17 @@ class Gear:
     def get_partner(self, partner_repetitions, partner_outer=False):
         # consider [t0, r0] -> [t1, r1] on self
         # if it's linear in radial space, and centers are distance a apart, the angle on the partner is:
-        # integral t0 to t1 of r(t) / (a - r(t)) dt, where r(t) = (r0 + (t-t0)*(r1-r0))
+        # integral 0 to t1 of r(t) / (a - r(t)) dt, where r(t) = (r0 + m*t), and m=(r1-r0)/(t1-t0)
         # Indefinite
-        # = -t + (a Log[a + r0 (-1 + t - t0) + r1 (-t + t0)])/(r0 - r1)  from t=t0 to t=t1
-        # = -r0 + r0*t - r0*t0 - r1*t + r1*t0   =   -r0 + t(r0 - r1) + t0 (-r0 + r1)   =   -r0 - (t-t0)(r1-r0)
-        # = -t + (a Log[a - r0 - (t-t0)(r1-r0)]) / (r0 - r1)
-        # Definite, t=t0 to t1
-        # (-t1 + (a Log[a - r0 - (t1-t0)(r1-r0)]) / (r0-r1)) - (-t0 + (a Log[a - r0 - 0]) / (r0-r1))
-        # -(t1-t0) + a Log[(a - r0 - (t1-t0)(r1-r0)) / (a - r0)] / (r0-r1)
-        # -dt - a Log[(a - r0 - dt*dr)/(a - r0)] / dr
-        # -dt - a Log[1 - dt*dr/(a - r0)] / dr
+        # -t - a/m * log(a - r0 - m*t)
+        # Definite, from t=0 to t=t1
+        # -t1 - a/m * (log(a - r0 - m*t1) - log(a - r0))
+        # -t1 - a/m * log(1 - m*t1/(a-r0))
         # annoyingly we need a separate equation for the case r0=r1. But this one I can do in my head
         # = (t1-t0)(r0/(a-r0))
         def fun_linear(dt, dr, r0, a):
-            return -dt + -1*a / dr * np.log(1 - dt*dr/(a - r0))
+            m = dr/dt
+            return -dt - a / m * np.log(1 - m*dt/(a - r0))
 
         def fun_const(dt, r0, a):
             return dt * r0 / (a-r0)
