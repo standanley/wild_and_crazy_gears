@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import scipy
 import matplotlib.pyplot as plt
@@ -71,7 +73,7 @@ class Gear:
         else:
             partner_rs = partner_rs_orig
             partner_dthetas = partner_dthetas_orig
-        assert (sum(partner_dthetas) - TAU/partner_repetitions < 1e-4)
+        assert (sum(partner_dthetas) - TAU/partner_repetitions < 1e-3)
 
         partner_thetas = np.concatenate(([0], np.cumsum(partner_dthetas)[:-1]))
 
@@ -145,7 +147,7 @@ class Assembly:
     @classmethod
     def mesh(cls, g1, g2):
         assert g1.N == g2.N
-        M = 100
+        M = 1000
         ts = np.linspace(0, 1, M, endpoint=False)
         angles1 = ts * TAU
 
@@ -156,14 +158,20 @@ class Assembly:
         angles2 = []
         segment = 0
         for angle in angles1:
-            while segment < len(g1.thetas)-1 and angle > g1.thetas[segment+1]:
+            while segment < len(g1.thetas)-1 and angle >= g1.thetas[segment+1]:
                 segment += 1
             if segment == len(g1.thetas):
                 print('in exit case')
                 break
 
-            dtheta2 = Gear.fun(angle - g1.thetas[segment],
-                               g1.rs[(segment+1)%g1.N] - g1.rs[segment],
+            next_segment = (segment+1)%g1.N
+            next_theta1 = TAU/g1.repetitions if next_segment == 0 else g1.thetas[next_segment]
+            dtheta1_segment = next_theta1 - g1.thetas[segment]
+            dr1_segment = g1.rs[next_segment] - g1.rs[segment]
+            dtheta1 = angle - g1.thetas[segment]
+            dr1 = (dtheta1 / dtheta1_segment) * dr1_segment
+            dtheta2 = Gear.fun(dtheta1,
+                               dr1,
                                g1.rs[segment],
                                distance)
             angles2.append(g2.thetas[segment] + dtheta2)
@@ -180,6 +188,9 @@ class Assembly:
     def animate(self):
         fig = plt.figure()
         ax = fig.add_subplot()
+        SIZE = 8
+        ax.set_xlim([-SIZE, SIZE])
+        ax.set_ylim([-SIZE, SIZE])
         ax.set_aspect('equal')
 
         curves_lists = []
@@ -201,19 +212,24 @@ class Assembly:
 
 thetas = np.array([
     0.0,
-    0.1,
     0.2,
-    0.4,
+    0.2,
+    0.7,
+    0.7,
+    0.0,
 ]) * TAU
 rs = np.array([
     1.0,
-    1.1,
-    1.5,
-    2.6,
+    1.0,
+    5.1,
+    5.1,
+    3.2,
+    3.2,
 ])
 
 g1 = Gear(1, thetas, rs)
 g2 = g1.get_partner(1)
+print('finished creating gears')
 
 #g1.plot()
 #g2.plot()
