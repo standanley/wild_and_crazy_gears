@@ -97,9 +97,14 @@ class Gear:
     def get_plot_coords(self, center, angle):
         sample_thetas = np.linspace(0, TAU, 100, endpoint=False)
         # TODO this breaks with repetitions
+        thetas_for_interp = np.concatenate((self.thetas, [TAU/self.repetitions]))
+        for i in range(1, len(thetas_for_interp)):
+            if thetas_for_interp[i] == thetas_for_interp[i-1]:
+                thetas_for_interp[i] += 1e-8
+        rs_for_interp = np.concatenate((self.rs, [self.rs[0]]))
         sample_rs = np.interp(sample_thetas,
-                              np.concatenate((self.thetas, [TAU/self.repetitions])),
-                              np.concatenate((self.rs, [self.rs[0]])),
+                              thetas_for_interp,
+                              rs_for_interp,
                               period=TAU/self.repetitions)
 
         xs, ys = self.polar_to_rect(self.transform_thetas(self.thetas - angle), self.rs, center)
@@ -212,19 +217,19 @@ class Assembly:
 
 thetas = np.array([
     0.0,
-    0.2,
-    0.2,
-    0.7,
-    0.7,
     0.0,
+    0.2,
+    0.2,
+    0.7,
+    0.7,
 ]) * TAU
 rs = np.array([
     1.0,
+    5.1,
+    5.1,
+    3.2,
+    3.2,
     1.0,
-    5.1,
-    5.1,
-    3.2,
-    3.2,
 ])
 
 g1 = Gear(1, thetas, rs)
