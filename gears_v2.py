@@ -100,8 +100,8 @@ class Gear:
                               np.concatenate((self.rs, [self.rs[0]])),
                               period=TAU/self.repetitions)
 
-        xs, ys = self.polar_to_rect(self.transform_thetas(self.thetas + angle), self.rs, center)
-        xs_fine, ys_fine = self.polar_to_rect(self.transform_thetas(sample_thetas + angle), sample_rs, center)
+        xs, ys = self.polar_to_rect(self.transform_thetas(self.thetas - angle), self.rs, center)
+        xs_fine, ys_fine = self.polar_to_rect(self.transform_thetas(sample_thetas - angle), sample_rs, center)
         return xs, ys, xs_fine, ys_fine
 
     def plot(self, ax=None):
@@ -195,7 +195,7 @@ class Assembly:
             return all_curves
         #update = self.set_up_animation(ax)
         ani = FuncAnimation(fig, partial(update), frames=range(self.M),
-                            blit=True, interval=100)
+                            blit=True, interval=30)
         plt.show()
 
 
