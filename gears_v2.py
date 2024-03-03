@@ -22,8 +22,11 @@ class Gear:
     @classmethod
     def fun(cls, dts, drs, r0s, a):
         def fun_linear(dt, dr, r0, a):
-            m = dr / dt
-            return -dt - a / m * np.log(1 - m * dt / (a - r0))
+            #m = dr / dt
+            #return -dt - a / m * np.log(1 - m * dt / (a - r0))
+            #return -dt/np.log((r0+dr)/r0)*np.log(a-(r0+dr))
+            b = np.log((r0+dr) / r0) / dt
+            return -1/b * np.log((a-(r0+dr))/(a - r0))
 
         def fun_const(dt, r0, a):
             return dt * r0 / (a - r0)
@@ -44,6 +47,16 @@ class Gear:
         # Definite, from t=0 to t=t1
         # -t1 - a/m * (log(a - r0 - m*t1) - log(a - r0))
         # -t1 - a/m * log(1 - m*t1/(a-r0))
+        # NEW we want to be exponential in radial space. curves are a piece of ae^(bt)
+        # if we go though (0, r0), (t1, r1) then r1/r0 = e^(b*t1) -> b = log(r1/r0)/t1
+        # and a=r0
+        # Indefinite integral of ae^(b*t)/(d-ae^(b*t)) dt
+        # -log(d - ae^(bt))/b
+        # Definite integral from t=0 to t=t1
+        # (-log(d-r0*e^(bt) + log(d-r0))/b
+        # -1/b * log(1-r0*e^(bt)/(d-r0))
+        # put in definition of b
+        # -t1/log(r1/r0) * log(d-r1)
         # annoyingly we need a separate equation for the case r0=r1. But this one I can do in my head
         # = (t1-t0)(r0/(a-r0))
 
@@ -51,11 +64,13 @@ class Gear:
         dts = np.diff(self.thetas, append=self.thetas[0:1]+TAU/self.repetitions)
         drs = np.diff(self.rs, append=self.rs[0:1])
 
-        a_min = np.min(self.rs) * (1 + partner_repetitions / self.repetitions)
+        a_min_0 = np.min(self.rs) * (1 + partner_repetitions / self.repetitions)
         a_max = np.max(self.rs) * (1 + partner_repetitions / self.repetitions)
+        a_min = max(np.max(self.rs), a_min_0)
+        #a_max = min(np.min(self.rs), a_max_0)
 
-        #test1 = fun(dts, drs, self.rs, a_min)
-        #test2 = fun(dts, drs, self.rs, a_max)
+        test1 = self.fun(dts, drs, self.rs, a_min)
+        test2 = self.fun(dts, drs, self.rs, a_max)
 
         def error(xs):
             a = xs[0]
@@ -95,17 +110,40 @@ class Gear:
             return thetas
 
     def get_plot_coords(self, center, angle):
-        sample_thetas = np.linspace(0, TAU, 100, endpoint=False)
-        # TODO this breaks with repetitions
-        thetas_for_interp = np.concatenate((self.thetas, [TAU/self.repetitions]))
-        for i in range(1, len(thetas_for_interp)):
-            if thetas_for_interp[i] == thetas_for_interp[i-1]:
-                thetas_for_interp[i] += 1e-8
-        rs_for_interp = np.concatenate((self.rs, [self.rs[0]]))
-        sample_rs = np.interp(sample_thetas,
-                              thetas_for_interp,
-                              rs_for_interp,
-                              period=TAU/self.repetitions)
+        M = 100
+        sample_thetas = np.zeros(0)
+        sample_rs = np.zeros(0)
+        for i in range(self.N):
+            next_i = (i+1)%self.N
+            t0, t1 = self.thetas[i], self.thetas[next_i]
+            r0, r1 = self.rs[i], self.rs[next_i]
+            if i==self.N-1:
+                t1 += TAU/self.repetitions
+            section_M = max(1, int(M * (t1-t0)/(TAU/self.repetitions)+1))
+            section_ts = np.linspace(t0, t1, section_M, endpoint=False)
+
+            if t0 == t1:
+                section_rs = np.array([r0])
+            elif r0 == r1:
+                section_rs = np.full(section_M, r0)
+            else:
+                b = np.log(r1/r0)/(t1-t0)
+                section_rs = r0 * np.exp(b*(section_ts-t0))
+
+            sample_thetas = np.concatenate((sample_thetas, section_ts))
+            sample_rs = np.concatenate((sample_rs, section_rs))
+
+        #sample_thetas = np.linspace(0, TAU, 100, endpoint=False)
+        ## TODO this breaks with repetitions
+        #thetas_for_interp = np.concatenate((self.thetas, [TAU/self.repetitions]))
+        #for i in range(1, len(thetas_for_interp)):
+        #    if thetas_for_interp[i] == thetas_for_interp[i-1]:
+        #        thetas_for_interp[i] += 1e-8
+        #rs_for_interp = np.concatenate((self.rs, [self.rs[0]]))
+        #sample_rs = np.interp(sample_thetas,
+        #                      thetas_for_interp,
+        #                      rs_for_interp,
+        #                      period=TAU/self.repetitions)
 
         xs, ys = self.polar_to_rect(self.transform_thetas(self.thetas - angle), self.rs, center)
         xs_fine, ys_fine = self.polar_to_rect(self.transform_thetas(sample_thetas - angle), sample_rs, center)
@@ -217,20 +255,30 @@ class Assembly:
 
 thetas = np.array([
     0.0,
-    0.0,
     0.2,
-    0.2,
-    0.7,
     0.7,
 ]) * TAU
 rs = np.array([
     1.0,
     5.1,
-    5.1,
     3.2,
-    3.2,
-    1.0,
 ])
+#thetas = np.array([
+#    0.0,
+#    0.0,
+#    0.2,
+#    0.2,
+#    0.7,
+#    0.7,
+#]) * TAU
+#rs = np.array([
+#    1.0,
+#    5.1,
+#    5.1,
+#    3.2,
+#    3.2,
+#    1.0,
+#])
 
 g1 = Gear(1, thetas, rs)
 g2 = g1.get_partner(1)
