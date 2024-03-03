@@ -88,7 +88,7 @@ class Gear:
         else:
             partner_rs = partner_rs_orig
             partner_dthetas = partner_dthetas_orig
-        assert (sum(partner_dthetas) - TAU/partner_repetitions < 1e-3)
+        assert (sum(partner_dthetas) - TAU/partner_repetitions < 1e-2)
 
         partner_thetas = np.concatenate(([0], np.cumsum(partner_dthetas)[:-1]))
 
@@ -132,6 +132,10 @@ class Gear:
 
             sample_thetas = np.concatenate((sample_thetas, section_ts))
             sample_rs = np.concatenate((sample_rs, section_rs))
+
+        sample_thetas = np.concatenate([sample_thetas+(TAU/self.repetitions*i) for i in range(self.repetitions)])
+        sample_rs = np.concatenate([sample_rs]*self.repetitions)
+
         sample_thetas = np.concatenate((sample_thetas, [sample_thetas[0]]))
         sample_rs = np.concatenate((sample_rs, [sample_rs[0]]))
 
@@ -162,7 +166,7 @@ class Gear:
 
         xs, ys, xs_fine, ys_fine = self.get_plot_coords([0, 0], 0)
 
-        fine, = ax.plot(xs_fine, ys_fine, '-')
+        fine, = ax.plot(xs_fine, ys_fine, '--')
         coarse, = ax.plot(xs, ys, '*')
         point, = ax.plot([0], [0], '+')
         return [fine, coarse, point]
@@ -202,18 +206,30 @@ class Assembly:
         # g1 goes from r1 to r2 as g2 goes from d-r1 to d-r2
         angles2 = []
         segment = 0
+        repetition_count = 0
         for angle in angles1:
-            # TODO I could make better use of numppy here by doing a whole segment at a time
-            while segment < len(g1.thetas)-1 and angle >= g1.thetas[segment+1]:
-                segment += 1
-            if segment == len(g1.thetas):
-                print('in exit case')
-                break
+            # TODO I could make better use of numpy here by doing a whole segment at a time
 
-            next_segment = (segment+1)%g1.N
-            next_theta1 = TAU/g1.repetitions if next_segment == 0 else g1.thetas[next_segment]
-            dtheta1_segment = next_theta1 - g1.thetas[segment]
-            dtheta1 = angle - g1.thetas[segment]
+            def get_thetas(i):
+                next_i = (i+1)%g1.N
+                theta = g1.thetas[i]
+                theta += repetition_count * TAU / g1.repetitions
+
+                next_theta1 = TAU / g1.repetitions if next_i == 0 else g1.thetas[next_i]
+                next_theta1 += repetition_count * TAU / g1.repetitions
+                return theta, next_theta1
+
+            theta, next_theta1 = get_thetas(segment)
+            while angle >= next_theta1:
+                segment = (segment+1)%g1.N
+                if segment == 0:
+                    repetition_count += 1
+                theta, next_theta1 = get_thetas(segment)
+
+            next_segment = (segment+1) % g1.N
+
+            dtheta1_segment = next_theta1 - theta
+            dtheta1 = angle - theta
 
             b = np.log((g1.rs[next_segment]) / g1.rs[segment]) / dtheta1_segment
             r1 = g1.rs[segment] * np.exp(b*dtheta1)
@@ -264,12 +280,12 @@ thetas = np.array([
     0.8,
     0.85,
     0.9,
-]) * TAU
+]) * TAU/3
 rs = np.array([
-    0.5,
+    0.8,
     5,
     4,
-    1,
+    1.3,
 ])
 #thetas = np.array([
 #    0.0,
@@ -288,7 +304,7 @@ rs = np.array([
 #    1.0,
 #])
 
-g1 = Gear(1, thetas, rs)
+g1 = Gear(3, thetas, rs)
 g2 = g1.get_partner(1)
 print('finished creating gears')
 
