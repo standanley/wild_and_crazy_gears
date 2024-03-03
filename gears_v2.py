@@ -212,7 +212,12 @@ class Assembly:
             dtheta1_segment = next_theta1 - g1.thetas[segment]
             dr1_segment = g1.rs[next_segment] - g1.rs[segment]
             dtheta1 = angle - g1.thetas[segment]
-            dr1 = (dtheta1 / dtheta1_segment) * dr1_segment
+            b = np.log((g1.rs[next_segment]) / g1.rs[segment]) / dtheta1_segment
+            r1 = g1.rs[segment] * np.exp(b*dtheta1)
+
+            dr1 = r1 - g1.rs[segment]
+
+
             dtheta2 = Gear.fun(dtheta1,
                                dr1,
                                g1.rs[segment],
@@ -255,13 +260,15 @@ class Assembly:
 
 thetas = np.array([
     0.0,
-    0.2,
-    0.7,
+    0.5,
+    0.6,
+    0.8
 ]) * TAU
 rs = np.array([
-    1.0,
+    0.5,
     5.1,
-    3.2,
+    0.5,
+    4
 ])
 #thetas = np.array([
 #    0.0,
