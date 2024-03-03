@@ -132,6 +132,8 @@ class Gear:
 
             sample_thetas = np.concatenate((sample_thetas, section_ts))
             sample_rs = np.concatenate((sample_rs, section_rs))
+        sample_thetas = np.concatenate((sample_thetas, [sample_thetas[0]]))
+        sample_rs = np.concatenate((sample_rs, [sample_rs[0]]))
 
         #sample_thetas = np.linspace(0, TAU, 100, endpoint=False)
         ## TODO this breaks with repetitions
@@ -190,7 +192,7 @@ class Assembly:
     @classmethod
     def mesh(cls, g1, g2):
         assert g1.N == g2.N
-        M = 1000
+        M = 250
         ts = np.linspace(0, 1, M, endpoint=False)
         angles1 = ts * TAU
 
@@ -201,6 +203,7 @@ class Assembly:
         angles2 = []
         segment = 0
         for angle in angles1:
+            # TODO I could make better use of numppy here by doing a whole segment at a time
             while segment < len(g1.thetas)-1 and angle >= g1.thetas[segment+1]:
                 segment += 1
             if segment == len(g1.thetas):
@@ -210,13 +213,11 @@ class Assembly:
             next_segment = (segment+1)%g1.N
             next_theta1 = TAU/g1.repetitions if next_segment == 0 else g1.thetas[next_segment]
             dtheta1_segment = next_theta1 - g1.thetas[segment]
-            dr1_segment = g1.rs[next_segment] - g1.rs[segment]
             dtheta1 = angle - g1.thetas[segment]
+
             b = np.log((g1.rs[next_segment]) / g1.rs[segment]) / dtheta1_segment
             r1 = g1.rs[segment] * np.exp(b*dtheta1)
-
             dr1 = r1 - g1.rs[segment]
-
 
             dtheta2 = Gear.fun(dtheta1,
                                dr1,
@@ -260,15 +261,15 @@ class Assembly:
 
 thetas = np.array([
     0.0,
-    0.5,
-    0.6,
-    0.8
+    0.8,
+    0.85,
+    0.9,
 ]) * TAU
 rs = np.array([
     0.5,
-    5.1,
-    0.5,
-    4
+    5,
+    4,
+    1,
 ])
 #thetas = np.array([
 #    0.0,
