@@ -304,8 +304,8 @@ rs = np.array([
 #    1.0,
 #])
 
-g1 = Gear(3, thetas, rs)
-g2 = g1.get_partner(1)
+g1 = Gear(1, thetas, rs)
+g2 = g1.get_partner(2)
 print('finished creating gears')
 
 #g1.plot()
