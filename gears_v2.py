@@ -23,7 +23,7 @@ class Gear:
     def fun(cls, dts, drs, r0s, a, self_is_outer=False, partner_is_outer=False):
 
         flip = -1 if self_is_outer or partner_is_outer else 1
-        assert not ((a < 0) ^ partner_is_outer)
+        #assert not ((a < 0) ^ partner_is_outer)
         def fun_linear(dt, dr, r0, a):
             #m = dr / dt
             #return -dt - a / m * np.log(1 - m * dt / (a - r0))
@@ -66,12 +66,11 @@ class Gear:
 
         dts = np.diff(self.thetas, append=self.thetas[0:1]+TAU/self.repetitions)
         drs = np.diff(self.rs, append=self.rs[0:1])
-
         a_min_0 = np.min(self.rs) * (1 + partner_repetitions / self.repetitions)
         a_max = np.max(self.rs) * (1 + partner_repetitions / self.repetitions)
         a_min = max(np.max(self.rs), a_min_0)
         #a_max = min(np.min(self.rs), a_max_0)
-        a_min = 1.4
+        a_min = -5
         a_max = 2.2
 
         test1 = self.fun(dts, drs, self.rs, a_min, self_is_outer=self.is_outer, partner_is_outer=partner_outer)
@@ -86,7 +85,7 @@ class Gear:
         print('settled on', a_opt)
 
 
-        if False:
+        if True:
             xs = np.linspace(a_min, a_max, 100)
             ys = np.array([error([x]) for x in xs])
             plt.plot(xs, ys, '*')
@@ -110,6 +109,7 @@ class Gear:
             partner_repetitions,
             partner_thetas,
             partner_rs,
+            is_outer=partner_outer,
             mirror=(not self.mirror) ^ (self.is_outer or partner_outer)
         )
         return partner
@@ -298,7 +298,7 @@ thetas = np.array([
     0.8,
     0.85,
     0.9,
-]) * TAU/2
+]) * TAU/1
 rs = np.array([
     3,
     5,
@@ -322,8 +322,8 @@ rs = np.array([
 #    1.0,
 #])
 
-g1 = Gear(2, thetas, rs, is_outer=True)
-g2 = g1.get_partner(1)
+g1 = Gear(1, thetas, rs, is_outer=False)
+g2 = g1.get_partner(2, partner_outer=True)
 print('finished creating gears')
 
 #g1.plot()
