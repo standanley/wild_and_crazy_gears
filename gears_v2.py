@@ -86,13 +86,14 @@ class Gear:
         print('settled on', a_opt)
 
 
-        if True:
+        if False:
             xs = np.linspace(a_min, a_max, 100)
             ys = np.array([error([x]) for x in xs])
             plt.plot(xs, ys, '*')
             plt.show()
 
-        partner_rs_orig = a_opt - self.rs
+        flip = -1 if self.is_outer or partner_outer else 1
+        partner_rs_orig = (a_opt - self.rs) * flip
         partner_dthetas_orig = self.fun(dts, drs, self.rs, a_opt, self_is_outer=self.is_outer, partner_is_outer=partner_outer)
 
         if False:#not partner_outer:
@@ -213,8 +214,9 @@ class Assembly:
         ts = np.linspace(0, 1, M, endpoint=False)
         angles1 = ts * TAU
 
-        distance = np.mean(g1.rs + g2.rs)
-        assert all(abs(g1.rs + g2.rs - distance) < 1e-4)
+        flip = -1 if (g1.is_outer or g2.is_outer) else 1
+        distance = np.mean(g1.rs + g2.rs*flip)
+        assert all(abs(g1.rs + g2.rs*flip - distance) < 1e-4)
 
         # g1 goes from r1 to r2 as g2 goes from d-r1 to d-r2
         angles2 = []
@@ -282,8 +284,7 @@ class Assembly:
 
             all_curves = []
             for g, g_curves, center, angles in zip(self.gears, curves_lists, self.centers, self.angles):
-                test = TAU/2 if g.repetitions == 1 else 0
-                all_curves += g.update_plot(center, angles[frame_num] + test, g_curves)
+                all_curves += g.update_plot(center, angles[frame_num], g_curves)
             return all_curves
         #update = self.set_up_animation(ax)
         ani = FuncAnimation(fig, partial(update), frames=range(self.M),
