@@ -20,7 +20,10 @@ class Gear:
 
 
     @classmethod
-    def fun(cls, dts, drs, r0s, a):
+    def fun(cls, dts, drs, r0s, a, self_is_outer=False, partner_is_outer=False):
+
+        flip = -1 if self_is_outer or partner_is_outer else 1
+        assert not ((a < 0) ^ partner_is_outer)
         def fun_linear(dt, dr, r0, a):
             #m = dr / dt
             #return -dt - a / m * np.log(1 - m * dt / (a - r0))
@@ -36,17 +39,10 @@ class Gear:
         zero = np.zeros(dts.shape)
         temp = np.where(drs==0, const, linear)
         result = np.where(dts==0, zero, temp)
-        return result
+        return result * flip
 
     def get_partner(self, partner_repetitions, partner_outer=False):
         # consider [t0, r0] -> [t1, r1] on self
-        # if it's linear in radial space, and centers are distance a apart, the angle on the partner is:
-        # integral 0 to t1 of r(t) / (a - r(t)) dt, where r(t) = (r0 + m*t), and m=(r1-r0)/(t1-t0)
-        # Indefinite
-        # -t - a/m * log(a - r0 - m*t)
-        # Definite, from t=0 to t=t1
-        # -t1 - a/m * (log(a - r0 - m*t1) - log(a - r0))
-        # -t1 - a/m * log(1 - m*t1/(a-r0))
         # NEW we want to be exponential in radial space. curves are a piece of ae^(bt)
         # if we go though (0, r0), (t1, r1) then r1/r0 = e^(b*t1) -> b = log(r1/r0)/t1
         # and a=r0
@@ -59,6 +55,13 @@ class Gear:
         # -t1/log(r1/r0) * log(d-r1)
         # annoyingly we need a separate equation for the case r0=r1. But this one I can do in my head
         # = (t1-t0)(r0/(a-r0))
+        # VARIATION for when self is outer
+        # Indefinite integral of ae^(b*t)/(ae^(b*t)-d) dt
+        # We can just pull a negative sign out
+        # VARIATION for when partner is outer. NOTE d must be negative for this to make sense
+        # Indefinite integral of ae^(b*t)/(-d + ae^(b*t)) dt
+        # actually the same as the other variation
+
 
 
         dts = np.diff(self.thetas, append=self.thetas[0:1]+TAU/self.repetitions)
@@ -68,19 +71,29 @@ class Gear:
         a_max = np.max(self.rs) * (1 + partner_repetitions / self.repetitions)
         a_min = max(np.max(self.rs), a_min_0)
         #a_max = min(np.min(self.rs), a_max_0)
+        a_min = 1.4
+        a_max = 2.2
 
-        test1 = self.fun(dts, drs, self.rs, a_min)
-        test2 = self.fun(dts, drs, self.rs, a_max)
+        test1 = self.fun(dts, drs, self.rs, a_min, self_is_outer=self.is_outer, partner_is_outer=partner_outer)
+        test2 = self.fun(dts, drs, self.rs, a_max, self_is_outer=self.is_outer, partner_is_outer=partner_outer)
 
         def error(xs):
             a = xs[0]
-            partner_dts = self.fun(dts, drs, self.rs, a)
+            partner_dts = self.fun(dts, drs, self.rs, a, self_is_outer=self.is_outer, partner_is_outer=partner_outer)
             return (sum(partner_dts) - TAU/partner_repetitions)**2
         res = scipy.optimize.minimize(error, [(a_min+a_max)/2], bounds=[(a_min, a_max)], method='Nelder-Mead')
         a_opt = res.x[0]
+        print('settled on', a_opt)
+
+
+        if True:
+            xs = np.linspace(a_min, a_max, 100)
+            ys = np.array([error([x]) for x in xs])
+            plt.plot(xs, ys, '*')
+            plt.show()
 
         partner_rs_orig = a_opt - self.rs
-        partner_dthetas_orig = self.fun(dts, drs, self.rs, a_opt)
+        partner_dthetas_orig = self.fun(dts, drs, self.rs, a_opt, self_is_outer=self.is_outer, partner_is_outer=partner_outer)
 
         if False:#not partner_outer:
             partner_rs = np.concatenate(([partner_rs_orig[0]], partner_rs_orig[1:][::-1]))
@@ -96,7 +109,7 @@ class Gear:
             partner_repetitions,
             partner_thetas,
             partner_rs,
-            mirror=not self.mirror
+            mirror=(not self.mirror) ^ (self.is_outer or partner_outer)
         )
         return partner
 
@@ -238,7 +251,9 @@ class Assembly:
             dtheta2 = Gear.fun(dtheta1,
                                dr1,
                                g1.rs[segment],
-                               distance)
+                               distance,
+                               self_is_outer=g1.is_outer,
+                               partner_is_outer=g2.is_outer)
             angles2.append(g2.thetas[segment] + dtheta2)
 
         assert len(angles2) == M
@@ -267,7 +282,8 @@ class Assembly:
 
             all_curves = []
             for g, g_curves, center, angles in zip(self.gears, curves_lists, self.centers, self.angles):
-                all_curves += g.update_plot(center, angles[frame_num], g_curves)
+                test = TAU/2 if g.repetitions == 1 else 0
+                all_curves += g.update_plot(center, angles[frame_num] + test, g_curves)
             return all_curves
         #update = self.set_up_animation(ax)
         ani = FuncAnimation(fig, partial(update), frames=range(self.M),
@@ -275,17 +291,18 @@ class Assembly:
         plt.show()
 
 
+
 thetas = np.array([
     0.0,
     0.8,
     0.85,
     0.9,
-]) * TAU/3
+]) * TAU/2
 rs = np.array([
-    0.8,
+    3,
     5,
     4,
-    1.3,
+    3.2,
 ])
 #thetas = np.array([
 #    0.0,
@@ -304,8 +321,8 @@ rs = np.array([
 #    1.0,
 #])
 
-g1 = Gear(1, thetas, rs)
-g2 = g1.get_partner(2)
+g1 = Gear(2, thetas, rs, is_outer=True)
+g2 = g1.get_partner(1)
 print('finished creating gears')
 
 #g1.plot()
