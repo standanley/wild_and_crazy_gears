@@ -6,11 +6,12 @@ from functools import partial
 TAU = np.pi*2
 
 class Gear:
-    def __init__(self, repetitions, thetas, rs, is_outer=False, mirror=False):
+    def __init__(self, repetitions, thetas, rs, is_outer=False, mirror=False, ignore_checks=False):
         self.repetitions = repetitions
         self.thetas = thetas
-        assert thetas[0] == 0
-        assert thetas[-1] < TAU/repetitions
+        if not ignore_checks:
+            assert thetas[0] == 0
+            assert thetas[-1] < TAU/repetitions
         self.rs = rs
         self.N = len(thetas)
         self.is_outer = is_outer
@@ -120,6 +121,43 @@ class Gear:
             mirror=(not self.mirror) ^ (self.is_outer or partner_outer)
         )
         return partner
+
+    @classmethod
+    def get_planetary_from_sun(cls, sun_fun, param_range, carrier_dist_range,
+                               planet_repetitions, ring_repetitions):
+
+        def try_planetary(xs):
+            param, carrier_dist = xs
+            sun = sun_fun(param)
+
+            planet_dthetas = sun.get_partner_dts_from_dist(carrier_dist, False)
+            planet_rs = carrier_dist - sun.rs
+            planet_thetas = np.concatenate(([0], np.cumsum(planet_dthetas)[:-1]))
+            planet = Gear(planet_repetitions, planet_thetas, planet_rs, mirror=True, ignore_checks=True)
+
+            ring_dthetas = planet.get_partner_dts_from_dist(-carrier_dist, True)
+            return sun, planet, planet_dthetas, ring_dthetas
+
+        def error(xs):
+            sun, planet, planet_dthetas, ring_dthetas = try_planetary(xs)
+            planet_error = np.sum(planet_dthetas) - TAU/planet_repetitions
+            ring_error = np.sum(ring_dthetas) - TAU/ring_repetitions
+            total_error = planet_error**2 + ring_error**2
+            return total_error
+
+        bounds = np.array([param_range, carrier_dist_range])
+        init = np.mean(bounds, axis=1)
+        res = scipy.optimize.minimize(error, init, bounds=bounds, method='Nelder-Mead')
+        assert res.success
+        param_opt, carrier_dist_opt = res.x
+
+        sun, planet, planet_dthetas, ring_dthetas = try_planetary(res.x)
+        ring_thetas = np.concatenate(([0], np.cumsum(ring_dthetas)[:-1]))
+        ring_rs = planet.rs + carrier_dist_opt
+        ring = Gear(ring_repetitions, ring_thetas, ring_rs, mirror=True)
+
+        return sun, planet, ring
+
 
     def polar_to_rect(self, thetas, rs, center):
         return rs*np.cos(thetas) + center[0], rs*np.sin(thetas) + center[1]
@@ -295,10 +333,10 @@ thetas = np.array([
     0.4,
     0.6,
     0.9,
-]) * TAU/3
+]) * TAU
 rs = np.array([
     1,
-    5,
+    4,
     3,
     3,
     1.2,
@@ -320,13 +358,43 @@ rs = np.array([
 #    1.0,
 #])
 
-g1 = Gear(3, thetas, rs, is_outer=True)
-g2 = g1.get_partner(2, partner_outer=False)
-print('finished creating gears')
+#g1 = Gear(3, thetas, rs, is_outer=True)
+#g2 = g1.get_partner(2, partner_outer=False)
+#print('finished creating gears')
+#
+##g1.plot()
+##g2.plot()
+##plt.show()
+#
+#assembly = Assembly.mesh(g1, g2)
+#assembly.animate()
 
-#g1.plot()
-#g2.plot()
-#plt.show()
 
-assembly = Assembly.mesh(g1, g2)
-assembly.animate()
+def get_sun(param):
+    thetas = np.array([
+        0,
+        0.3,
+        0.7,
+        0.8,
+    ])
+    rs = np.array([
+        1,
+        3,
+        param,
+        2,
+    ])
+
+    sun = Gear(1, thetas, rs)
+    return sun
+
+
+sun, planet, ring = Gear.get_planetary_from_sun(get_sun, (1, 5), (4, 10), 1, 4)
+planet_dist = sun.rs[0] + planet.rs[0]
+
+fig = plt.figure()
+ax = fig.add_subplot()
+sun.plot(ax)
+planet_curves = planet.plot(ax)
+planet.update_plot([planet_dist, 0], TAU/2, planet_curves)
+ring.plot(ax)
+plt.show()
