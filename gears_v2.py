@@ -1,5 +1,3 @@
-import time
-
 import numpy as np
 import scipy
 import matplotlib.pyplot as plt
@@ -44,9 +42,6 @@ class Gear:
         flip = -1 if self_is_outer or partner_is_outer else 1
         #assert not ((a < 0) ^ partner_is_outer)
         def fun_linear(dt, dr, r0, a):
-            #m = dr / dt
-            #return -dt - a / m * np.log(1 - m * dt / (a - r0))
-            #return -dt/np.log((r0+dr)/r0)*np.log(a-(r0+dr))
             b = np.log((r0+dr) / r0) / dt
             return -1/b * np.log((a-(r0+dr))/(a - r0))
 
@@ -88,6 +83,8 @@ class Gear:
             # min and max kinda get swapped because a is always negative
             a_min = np.max(self.rs) * (1 - partner_repetitions / self.repetitions)
             a_max = np.min(self.rs) * (1 - partner_repetitions / self.repetitions)
+        else:
+            assert False
 
 
         def error(xs):
@@ -95,11 +92,12 @@ class Gear:
             partner_dts = self.get_partner_dts_from_dist(a, partner_outer)
             return (sum(partner_dts) - TAU/partner_repetitions)**2
         res = scipy.optimize.minimize(error, [(a_min+a_max)/2], bounds=[(a_min, a_max)], method='Nelder-Mead')
+        assert res.success
         a_opt = res.x[0]
-        print('settled on', a_opt)
+        print('Optimizer result:', a_opt)
 
 
-        if True:
+        if False:
             xs = np.linspace(a_min, a_max, 100)
             ys = np.array([sum(self.get_partner_dts_from_dist(x, partner_outer)) for x in xs])
             plt.plot([xs[0], xs[-1]], [TAU/partner_repetitions]*2, '--')
@@ -107,15 +105,9 @@ class Gear:
             plt.show()
 
         flip = -1 if self.is_outer or partner_outer else 1
-        partner_rs_orig = (a_opt - self.rs) * flip
-        partner_dthetas_orig = self.get_partner_dts_from_dist(a_opt, partner_outer) # self.fun(dts, drs, self.rs, a_opt, self_is_outer=self.is_outer, partner_is_outer=partner_outer)
+        partner_rs = (a_opt - self.rs) * flip
+        partner_dthetas = self.get_partner_dts_from_dist(a_opt, partner_outer) # self.fun(dts, drs, self.rs, a_opt, self_is_outer=self.is_outer, partner_is_outer=partner_outer)
 
-        if False:#not partner_outer:
-            partner_rs = np.concatenate(([partner_rs_orig[0]], partner_rs_orig[1:][::-1]))
-            partner_dthetas = partner_dthetas_orig[::-1]
-        else:
-            partner_rs = partner_rs_orig
-            partner_dthetas = partner_dthetas_orig
         assert (sum(partner_dthetas) - TAU/partner_repetitions < 1e-2)
 
         partner_thetas = np.concatenate(([0], np.cumsum(partner_dthetas)[:-1]))
@@ -168,17 +160,6 @@ class Gear:
         sample_thetas = np.concatenate((sample_thetas, [sample_thetas[0]]))
         sample_rs = np.concatenate((sample_rs, [sample_rs[0]]))
 
-        #sample_thetas = np.linspace(0, TAU, 100, endpoint=False)
-        ## TODO this breaks with repetitions
-        #thetas_for_interp = np.concatenate((self.thetas, [TAU/self.repetitions]))
-        #for i in range(1, len(thetas_for_interp)):
-        #    if thetas_for_interp[i] == thetas_for_interp[i-1]:
-        #        thetas_for_interp[i] += 1e-8
-        #rs_for_interp = np.concatenate((self.rs, [self.rs[0]]))
-        #sample_rs = np.interp(sample_thetas,
-        #                      thetas_for_interp,
-        #                      rs_for_interp,
-        #                      period=TAU/self.repetitions)
 
         xs, ys = self.polar_to_rect(self.transform_thetas(self.thetas - angle), self.rs, center)
         xs_fine, ys_fine = self.polar_to_rect(self.transform_thetas(sample_thetas - angle), sample_rs, center)
