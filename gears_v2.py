@@ -154,7 +154,7 @@ class Gear:
         sun, planet, planet_dthetas, ring_dthetas = try_planetary(res.x)
         ring_thetas = np.concatenate(([0], np.cumsum(ring_dthetas)[:-1]))
         ring_rs = planet.rs + carrier_dist_opt
-        ring = Gear(ring_repetitions, ring_thetas, ring_rs, mirror=True)
+        ring = Gear(ring_repetitions, ring_thetas, ring_rs, is_outer=True, mirror=True)
 
         return sun, planet, ring
 
@@ -291,6 +291,16 @@ class Assembly:
                                self_is_outer=g1.is_outer,
                                partner_is_outer=g2.is_outer)
             angles2.append(g2.thetas[segment] + dtheta2)
+        angles2 = np.array(angles2)
+
+        # TODO I'm not sure this next line is right
+        if g1.mirror:
+            angles1 += TAU/2
+
+        # mirror, not outer -> no
+        # no mirror, is outer -> no
+        if (not g2.mirror) ^ (g1.is_outer or g2.is_outer):
+            angles2 += TAU/2
 
         assert len(angles2) == M
 
@@ -300,6 +310,13 @@ class Assembly:
                      [[-distance/2, 0], [distance/2, 0]]
                      )
         return a
+
+    @classmethod
+    def mesh_planetary(cls, sun, planet, ring):
+        sp = cls.mesh(sun, planet)
+        #sp.animate()
+        pr = cls.mesh(planet, ring)
+        pr.animate()
 
     def animate(self):
         fig = plt.figure()
@@ -320,6 +337,11 @@ class Assembly:
             for g, g_curves, center, angles in zip(self.gears, curves_lists, self.centers, self.angles):
                 all_curves += g.update_plot(center, angles[frame_num], g_curves)
             return all_curves
+
+        # show just the first frame
+        #update(0)
+        #plt.show()
+
         #update = self.set_up_animation(ax)
         ani = FuncAnimation(fig, partial(update), frames=range(self.M),
                             blit=True, interval=30)
@@ -333,7 +355,7 @@ thetas = np.array([
     0.4,
     0.6,
     0.9,
-]) * TAU
+]) * TAU/1
 rs = np.array([
     1,
     4,
@@ -358,17 +380,18 @@ rs = np.array([
 #    1.0,
 #])
 
-#g1 = Gear(3, thetas, rs, is_outer=True)
-#g2 = g1.get_partner(2, partner_outer=False)
-#print('finished creating gears')
-#
-##g1.plot()
-##g2.plot()
-##plt.show()
-#
-#assembly = Assembly.mesh(g1, g2)
-#assembly.animate()
+g1 = Gear(1, thetas, rs, is_outer=False, mirror=False)
+g2 = g1.get_partner(3, partner_outer=True)
+print('finished creating gears')
 
+#g1.plot()
+#g2.plot()
+#plt.show()
+
+assembly = Assembly.mesh(g1, g2)
+assembly.animate()
+
+exit()
 
 def get_sun(param):
     thetas = np.array([
@@ -376,7 +399,7 @@ def get_sun(param):
         0.3,
         0.7,
         0.8,
-    ])
+    ]) / 3
     rs = np.array([
         1,
         3,
@@ -391,10 +414,12 @@ def get_sun(param):
 sun, planet, ring = Gear.get_planetary_from_sun(get_sun, (1, 5), (4, 10), 1, 4)
 planet_dist = sun.rs[0] + planet.rs[0]
 
-fig = plt.figure()
-ax = fig.add_subplot()
-sun.plot(ax)
-planet_curves = planet.plot(ax)
-planet.update_plot([planet_dist, 0], TAU/2, planet_curves)
-ring.plot(ax)
-plt.show()
+#fig = plt.figure()
+#ax = fig.add_subplot()
+#sun.plot(ax)
+#planet_curves = planet.plot(ax)
+#planet.update_plot([planet_dist, 0], TAU/2, planet_curves)
+#ring.plot(ax)
+#plt.show()
+
+Assembly.mesh_planetary(sun, planet, ring)
