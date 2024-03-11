@@ -92,7 +92,7 @@ class Gear:
             a = xs[0]
             partner_dts = self.get_partner_dts_from_dist(a, partner_outer)
             return (sum(partner_dts) - TAU/partner_repetitions)**2
-        res = scipy.optimize.minimize(error, [(a_min+a_max)/2], bounds=[(a_min, a_max)], method='Nelder-Mead')
+        res = scipy.optimize.minimize(error, [(a_min+a_max)/2], bounds=[(a_min, a_max)])#, method='Nelder-Mead')
         assert res.success
         a_opt = res.x[0]
         print('Optimizer result:', a_opt)
@@ -149,6 +149,8 @@ class Gear:
         init = np.mean(bounds, axis=1)
         res = scipy.optimize.minimize(error, init, bounds=bounds, method='Nelder-Mead')
         assert res.success
+        print('optimizer result', res.x, 'bounds', bounds)
+        print('error', res.fun)
         param_opt, carrier_dist_opt = res.x
 
         sun, planet, planet_dthetas, ring_dthetas = try_planetary(res.x)
@@ -318,37 +320,9 @@ class Assembly:
         pr = cls.mesh(planet, ring)
         #pr.animate()
 
-        # TODO
-        # make it so centers can be a list
-        # modify ring+planet to make ring motionless
-        # add sun to that (Not sure how hard that will be)
-
-
-        # From pr we have a mapping from any angle to the planet tooth which will touch the sun at that angle
-        # Given the sun's current rotation we have the planet tooth that will touch each angle
-        # There should be a unique planet position to match both of those
-
         # If we drive the pr from the planet gear, we already have a mapping from planet thing to gear thing.
         # We can just warp the speed of that and put the sun in the center.
-        def get_planet_position(sun_angle):
-            pass
-
-
-        # first pass
-        p_i = sp.gears.index(planet)
-        planet_angles = sp.angles[p_i]
-
-        ## TODO wrapping?
-        #planet_angles_to_ring_angles = scipy.interp1d(*pr.angles, period=TAU/planet.repetitions)
-
-        #ring_angles = []
-        #for i in sp.M:
-        #    planet_angle = planet_angles[i]
-        #    ring_angle = planet_angles_to_ring_angles(planet_angle)
-        #    ring_angles.append(ring_angle)
-
-        ring_angles = np.interp(planet_angles, *pr.angles, period=TAU/planet.repetitions)
-
+        ring_angles = np.interp(sp.angles[1], *pr.angles, period=TAU/planet.repetitions)
         planet_center = np.array(sp.centers[1]) - np.array(sp.centers[0])
 
         spr = Assembly(
@@ -442,24 +416,36 @@ def test_simple():
 if __name__ == '__main__':
 
     def get_sun(param):
+        #thetas = np.array([
+        #    0,
+        #    0.3,
+        #    0.7,
+        #    0.8,
+        #]) * TAU
+        #rs = np.array([
+        #    1,
+        #    3,
+        #    param,
+        #    2,
+        #])
         thetas = np.array([
             0,
             0.3,
-            0.7,
             0.8,
+            0.9,
         ]) * TAU
         rs = np.array([
             1,
-            3,
+            1,
             param,
-            2,
+            param,
         ])
 
         sun = Gear(1, thetas, rs)
         return sun
 
 
-    sun, planet, ring = Gear.get_planetary_from_sun(get_sun, (1, 9), (4, 10), 1, 4)
+    sun, planet, ring = Gear.get_planetary_from_sun(get_sun, (1, 10), (1, 10), 1, 4)
     planet_dist = sun.rs[0] + planet.rs[0]
 
     #fig = plt.figure()
