@@ -316,12 +316,56 @@ class Assembly:
         sp = cls.mesh(sun, planet)
         #sp.animate()
         pr = cls.mesh(planet, ring)
-        pr.animate()
+        #pr.animate()
+
+        # TODO
+        # make it so centers can be a list
+        # modify ring+planet to make ring motionless
+        # add sun to that (Not sure how hard that will be)
+
+
+        # From pr we have a mapping from any angle to the planet tooth which will touch the sun at that angle
+        # Given the sun's current rotation we have the planet tooth that will touch each angle
+        # There should be a unique planet position to match both of those
+
+        # If we drive the pr from the planet gear, we already have a mapping from planet thing to gear thing.
+        # We can just warp the speed of that and put the sun in the center.
+        def get_planet_position(sun_angle):
+            pass
+
+
+        # first pass
+        p_i = sp.gears.index(planet)
+        planet_angles = sp.angles[p_i]
+
+        ## TODO wrapping?
+        #planet_angles_to_ring_angles = scipy.interp1d(*pr.angles, period=TAU/planet.repetitions)
+
+        #ring_angles = []
+        #for i in sp.M:
+        #    planet_angle = planet_angles[i]
+        #    ring_angle = planet_angles_to_ring_angles(planet_angle)
+        #    ring_angles.append(ring_angle)
+
+        ring_angles = np.interp(planet_angles, *pr.angles, period=TAU/planet.repetitions)
+
+        planet_center = np.array(sp.centers[1]) - np.array(sp.centers[0])
+
+        spr = Assembly(
+            sp.ts,
+            [sun, planet, ring],
+            [*sp.angles, ring_angles],
+            [[0, 0], planet_center, [0,0]]
+        )
+        spr.animate()
+
+
+
 
     def animate(self):
         fig = plt.figure()
         ax = fig.add_subplot()
-        SIZE = 8
+        SIZE = 20
         ax.set_xlim([-SIZE, SIZE])
         ax.set_ylim([-SIZE, SIZE])
         ax.set_aspect('equal')
@@ -349,77 +393,81 @@ class Assembly:
 
 
 
-thetas = np.array([
-    0.0,
-    0.4,
-    0.4,
-    0.6,
-    0.9,
-]) * TAU/1
-rs = np.array([
-    1,
-    4,
-    3,
-    3,
-    1.2,
-])
-#thetas = np.array([
-#    0.0,
-#    0.0,
-#    0.2,
-#    0.2,
-#    0.7,
-#    0.7,
-#]) * TAU
-#rs = np.array([
-#    1.0,
-#    5.1,
-#    5.1,
-#    3.2,
-#    3.2,
-#    1.0,
-#])
-
-g1 = Gear(1, thetas, rs, is_outer=False, mirror=False)
-g2 = g1.get_partner(3, partner_outer=True)
-print('finished creating gears')
-
-#g1.plot()
-#g2.plot()
-#plt.show()
-
-assembly = Assembly.mesh(g1, g2)
-assembly.animate()
-
-exit()
-
-def get_sun(param):
+def test_simple():
     thetas = np.array([
-        0,
-        0.3,
-        0.7,
-        0.8,
-    ]) / 3
+        0.0,
+        0.4,
+        0.4,
+        0.6,
+        0.9,
+    ]) * TAU / 1
     rs = np.array([
         1,
+        4,
         3,
-        param,
-        2,
+        3,
+        1.2,
     ])
+    # thetas = np.array([
+    #    0.0,
+    #    0.0,
+    #    0.2,
+    #    0.2,
+    #    0.7,
+    #    0.7,
+    # ]) * TAU
+    # rs = np.array([
+    #    1.0,
+    #    5.1,
+    #    5.1,
+    #    3.2,
+    #    3.2,
+    #    1.0,
+    # ])
 
-    sun = Gear(1, thetas, rs)
-    return sun
+    g1 = Gear(1, thetas, rs, is_outer=False, mirror=False)
+    g2 = g1.get_partner(3, partner_outer=True)
+    print('finished creating gears')
+
+    # g1.plot()
+    # g2.plot()
+    # plt.show()
+
+    assembly = Assembly.mesh(g1, g2)
+    assembly.animate()
+
+    exit()
 
 
-sun, planet, ring = Gear.get_planetary_from_sun(get_sun, (1, 5), (4, 10), 1, 4)
-planet_dist = sun.rs[0] + planet.rs[0]
+if __name__ == '__main__':
 
-#fig = plt.figure()
-#ax = fig.add_subplot()
-#sun.plot(ax)
-#planet_curves = planet.plot(ax)
-#planet.update_plot([planet_dist, 0], TAU/2, planet_curves)
-#ring.plot(ax)
-#plt.show()
+    def get_sun(param):
+        thetas = np.array([
+            0,
+            0.3,
+            0.7,
+            0.8,
+        ]) * TAU
+        rs = np.array([
+            1,
+            3,
+            param,
+            2,
+        ])
 
-Assembly.mesh_planetary(sun, planet, ring)
+        sun = Gear(1, thetas, rs)
+        return sun
+
+
+    sun, planet, ring = Gear.get_planetary_from_sun(get_sun, (1, 9), (4, 10), 1, 4)
+    planet_dist = sun.rs[0] + planet.rs[0]
+
+    #fig = plt.figure()
+    #ax = fig.add_subplot()
+    #sun.plot(ax)
+    #planet_curves = planet.plot(ax)
+    #planet.update_plot([planet_dist, 0], TAU/2, planet_curves)
+    #ring.plot(ax)
+    #plt.show()
+
+    Assembly.mesh_planetary(sun, planet, ring)
