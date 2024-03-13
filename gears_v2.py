@@ -5,6 +5,81 @@ from matplotlib.animation import FuncAnimation
 from functools import partial
 TAU = np.pi*2
 
+
+class Interp:
+    # EPS is used in cases where period_y is not None; this class will insert another point at
+    # [xs[0] + period_x - EPS, ys[0]+period_y]
+    EPS = 1e-10
+
+    def __init__(self, xs, ys, period_x, period_y=None):
+        self.xs = np.array(xs)
+        self.ys = np.array(ys)
+        #self.ys = ys
+        self.period_x = period_x
+        self.period_y = period_y
+
+        self.N = len(xs)
+        assert len(ys) == self.N
+
+        diffs = np.diff(xs)
+        self.x_increasing = True
+        nonmonotonic = False
+        if all(diffs >= 0):
+            pass
+        elif all(diffs <= 0):
+            self.x_increasing = False
+        else:
+            nonmonotonic = True
+
+
+        self.xs_interp = xs
+        self.ys_interp = ys
+        if self.period_y:
+            sign = (1 if self.x_increasing else -1)
+            x_final = self.xs_interp[0] + sign * (abs(self.period_x) - self.EPS)
+            self.xs_interp = np.append(self.xs_interp, x_final)
+            self.ys_interp = np.append(self.ys_interp, self.ys_interp[0] + self.period_y)
+
+        def fun(x):
+            y = np.interp(x, self.xs_interp, self.ys_interp, period=self.period_x)
+            if self.period_y is not None:
+                i = np.floor((x - self.xs_interp[0]) / self.period_x)
+                y += i * self.period_y
+            return y
+
+        self.fun = fun
+
+        #if (DO_VISUALIZE and len(self.ys.shape) == 1):
+        #    self.visualize()
+        #assert not nonmonotonic, 'interp is not monotonic'
+        if nonmonotonic:
+            raise ValueError('Nonmonotonic')
+
+    def visualize(self):
+        #xs_fake = np.linspace(-.2*self.period_x, self.period_x*2.2, 30000)
+        xs_fake = np.linspace(-2.1, 15, 30000)
+        ys_fake = self.fun(xs_fake)
+        plt.plot(xs_fake, ys_fake, '*')
+        plt.plot(self.xs_interp, self.ys_interp, '+')
+        plt.show()
+
+    @classmethod
+    def from_fun_xs(cls, fun, xs, period_x, period_y=None):
+        ys = fun(xs)
+        temp = cls(xs, ys, period_x, period_y)
+
+        # we override the normal interpolation function
+        temp.fun = fun
+        return temp
+
+    @classmethod
+    def from_fun(cls, fun, N, xmin, xmax, period_x, period_y=None):
+        xs = np.linspace(xmin, xmax, N, endpoint=False)
+        return cls.from_fun_xs(fun, xs, period_x, period_y)
+
+    def __call__(self, x):
+        return self.fun(x)
+
 class Gear:
     def __init__(self, repetitions, thetas, rs, is_outer=False, mirror=False, ignore_checks=False):
         self.repetitions = repetitions
@@ -241,7 +316,7 @@ class Assembly:
         assert len(self.angles) == self.num_gears
         assert all(len(x)==self.M for x in self.angles)
         self.centers = centers
-        #assert all(len(x)==self.M for x in self.centers)
+        assert all(len(x)==self.M for x in self.centers)
 
     @classmethod
     def mesh(cls, g1, g2):
@@ -306,32 +381,115 @@ class Assembly:
 
         assert len(angles2) == M
 
+        center1, center2 = [-distance/2, 0], [distance/2, 0]
+
         a = Assembly(ts,
                      [g1, g2],
                      [angles1, angles2],
-                     [[-distance/2, 0], [distance/2, 0]]
+                     [[center1]*M, [center2]*M]
                      )
         return a
 
     @classmethod
     def mesh_planetary(cls, sun, planet, ring):
+        def repeat(xs, R, period):
+            return np.concatenate([xs + i*period for i in range(R)])
         sp = cls.mesh(sun, planet)
         #sp.animate()
         pr = cls.mesh(planet, ring)
         #pr.animate()
+        M = sp.M
+        R = ring.repetitions
 
         # If we drive the pr from the planet gear, we already have a mapping from planet thing to gear thing.
         # We can just warp the speed of that and put the sun in the center.
-        ring_angles = np.interp(sp.angles[1], *pr.angles, period=TAU/planet.repetitions)
-        planet_center = np.array(sp.centers[1]) - np.array(sp.centers[0])
+        #ring_angles = np.interp(sp.angles[1], *pr.angles, period=TAU/planet.repetitions)
+        temp_interp = Interp(*pr.angles, TAU/planet.repetitions, TAU/ring.repetitions)
+        #temp_interp.visualize()
+        ring_angles = temp_interp(sp.angles[1])
+        planet_centers = np.array(sp.centers[1]) - np.array(sp.centers[0])
 
+
+        #plt.figure()
+        #plt.plot(*pr.angles, '--')
+        #plt.plot(sp.angles[1], ring_angles)
+        #plt.show()
+
+        # with planet gear center stationary
+        ts = repeat(sp.ts, R, 1)
+        sun_angles1 = repeat(sp.angles[0], R, TAU)
+        planet_angles1 = repeat(sp.angles[1], R, TAU)
+        ring_angles1 = repeat(ring_angles, R, TAU/R)
+        zero_centers = np.zeros((M*R, 2))
+        planet_centers1 = np.concatenate([planet_centers]*R)
         spr = Assembly(
-            sp.ts,
+            ts,
             [sun, planet, ring],
-            [*sp.angles, ring_angles],
-            [[0, 0], planet_center, [0,0]]
+            [sun_angles1, planet_angles1, ring_angles1],
+            [zero_centers, planet_centers1, zero_centers]
         )
-        spr.animate()
+        #spr.animate()
+
+        # with ring gear stationary
+        planet_dist = planet_centers[0][0]
+        sun_angles2 = sun_angles1 + ring_angles1
+        planet_centers2 = planet_dist * np.stack([np.cos(-ring_angles1), np.sin(-ring_angles1)], axis=1)
+        planet_angles2 = planet_angles1 - ring_angles1
+        ring_angles2 = np.zeros(M*R)
+        spr2 = Assembly(
+            ts,
+            [sun, planet, ring],
+            [sun_angles2, planet_angles2, ring_angles2],
+            [zero_centers, planet_centers2, zero_centers]
+        )
+        #spr2.animate()
+
+
+        # now warp time to make sun rotation constant speed
+        ts_warped = (sun_angles2 - sun_angles2[0]) / (sun_angles2[-1] - sun_angles2[0]) * R
+        ts_warped_inverse = Interp(ts_warped, spr2.ts, ts_warped[-1])(spr2.ts)
+        spr2.time_warp(ts_warped_inverse)
+
+        num_planets = 5
+        for i in range(1, num_planets):
+            offset = (len(spr2.ts)*i)//num_planets
+            print(offset)
+            spr2.gears.append(planet)
+            spr2.angles.append(np.roll(spr2.angles[1], offset))
+            #centers_T = spr2.centers[1].T
+            #thetas = np.arctan2(centers_T[1], centers_T[0])
+            #rs = np.sqrt(centers_T[0]**2 + centers_T[1]**2)
+            #xs = rs * np.cos(thetas + offset)
+            #ys = rs * np.sin(thetas + offset)
+            #np.stack([xs, ys], axis=1)
+            spr2.centers.append(np.roll(spr2.centers[1], offset, axis=0))
+
+        print('final')
+        spr2.animate()
+
+
+
+    def time_warp(self, new_ts):
+        # we can't really use new_ts directly becasue the ts need to be evenly spaced for animatino
+        # to work propoerly.
+
+        for i in range(len(self.gears)):
+            # TODO find proper period
+            old_angles = self.angles[i]
+            new_angles = Interp(self.ts, old_angles, self.ts[-1])(new_ts)
+            self.angles[i] = new_angles
+
+            xs, ys = self.centers[i].T
+            new_xs = Interp(self.ts, xs, self.ts[-1])(new_ts)
+            new_ys = Interp(self.ts, ys, self.ts[-1])(new_ts)
+            new_centers = np.stack((new_xs, new_ys), axis=1)
+            self.centers[i] = new_centers
+
+
+
+
+
+
 
 
 
@@ -352,8 +510,8 @@ class Assembly:
         def update(frame_num):
 
             all_curves = []
-            for g, g_curves, center, angles in zip(self.gears, curves_lists, self.centers, self.angles):
-                all_curves += g.update_plot(center, angles[frame_num], g_curves)
+            for g, g_curves, centers, angles in zip(self.gears, curves_lists, self.centers, self.angles):
+                all_curves += g.update_plot(centers[frame_num], angles[frame_num], g_curves)
             return all_curves
 
         # show just the first frame
@@ -432,13 +590,13 @@ if __name__ == '__main__':
             0,
             0.3,
             0.8,
-            0.9,
+            #0.9,
         ]) * TAU
         rs = np.array([
             1,
             1,
             param,
-            param,
+            #param,
         ])
 
         sun = Gear(1, thetas, rs)
