@@ -199,7 +199,7 @@ class Gear:
 
     @classmethod
     def get_planetary_from_sun(cls, sun_fun, param_range, carrier_dist_range,
-                               planet_repetitions, ring_repetitions):
+                               planet_repetitions, ring_repetitions, return_param=False):
 
         def try_planetary(xs):
             param, carrier_dist = xs
@@ -227,6 +227,8 @@ class Gear:
         print('optimizer result', res.x, 'bounds', bounds)
         print('error', res.fun)
         param_opt, carrier_dist_opt = res.x
+        if return_param:
+            return param_opt
 
         sun, planet, planet_dthetas, ring_dthetas = try_planetary(res.x)
         ring_thetas = np.concatenate(([0], np.cumsum(ring_dthetas)[:-1]))
@@ -321,7 +323,7 @@ class Assembly:
     @classmethod
     def mesh(cls, g1, g2):
         assert g1.N == g2.N
-        M = 250
+        M = 500
         ts = np.linspace(0, 1, M, endpoint=False)
         angles1 = ts * TAU
 
@@ -574,36 +576,76 @@ def test_simple():
 if __name__ == '__main__':
 
     def get_sun(param):
-        #thetas = np.array([
-        #    0,
-        #    0.3,
-        #    0.7,
-        #    0.8,
-        #]) * TAU
-        #rs = np.array([
-        #    1,
-        #    3,
-        #    param,
-        #    2,
-        #])
         thetas = np.array([
             0,
-            0.3,
-            0.8,
-            #0.9,
+            0.1,
+            0.2,
+            0.4,
+            0.9,
         ]) * TAU
         rs = np.array([
             1,
-            1,
+            1.5,
             param,
-            #param,
+            param,
+            1.5,
         ])
+        #thetas = np.array([
+        #    0,
+        #    0.1,
+        #    param,
+        #    param+0.1,
+        #]) * TAU
+        #rs = np.array([
+        #    1,
+        #    4,
+        #    2,
+        #    1,
+        #])
 
         sun = Gear(1, thetas, rs)
         return sun
 
+    def get_sun_sweep(param2):
+        def get_sun(param):
+            miter_width = 0.06
+            miter_height = 0.6
+            thetas = np.array([
+                0,
+                miter_width,
+                miter_width,
+                param2+miter_width,
+                param2+miter_width,
+                param2+2*miter_width,
+            ]) * TAU
+            rs = np.array([
+                1,
+                1+miter_height,
+                param,
+                param,
+                1+miter_height,
+                1,
+            ])
+            sun = Gear(1, thetas, rs)
+            return sun
+        return get_sun
 
-    sun, planet, ring = Gear.get_planetary_from_sun(get_sun, (1, 10), (1, 10), 1, 4)
+    param2s = np.linspace(0.01, 0.2, 20)
+    params = []
+    lowest = 10
+    lowest_param2 = None
+    for param2 in param2s:
+        get_sun = get_sun_sweep(param2)
+        param_opt = Gear.get_planetary_from_sun(get_sun, (1, 10), (1, 10), 1, 4, return_param=True)
+        params.append(param_opt)
+        if param_opt < lowest:
+            lowest_param2 = param2
+        lowest = min(param_opt, lowest)
+    plt.figure()
+    plt.plot(param2s, params, '+')
+    plt.show()
+
+    sun, planet, ring = Gear.get_planetary_from_sun(get_sun_sweep(lowest_param2), (1, 20), (1, 20), 1, 4)
     planet_dist = sun.rs[0] + planet.rs[0]
 
     #fig = plt.figure()
