@@ -633,26 +633,45 @@ if __name__ == '__main__':
         def get_sun(param):
             miter_width = 0.06
             miter_height = 0.6
+            miter2_width = 0.04
+            miter2_height = 0.1
             thetas = np.array([
                 0,
-                miter_width,
-                miter_width,
-                param2+miter_width,
-                param2+miter_width,
-                param2+2*miter_width,
+                miter2_width,
+                miter_width + miter2_width,
+                miter_width + miter2_width,
+                param2+miter_width + miter2_width,
+                param2+miter_width + miter2_width,
+                param2+2*miter_width + miter2_width,
+                param2 + 2*miter_width + 2*miter2_width
             ]) * TAU/SUN_R
             rs = np.array([
                 1,
+                1+miter2_height,
                 1+miter_height,
                 param,
                 param,
                 1+miter_height,
+                1+miter2_height,
                 1,
             ])
             sun = Gear(SUN_R, thetas, rs)
             return sun
         return get_sun
 
+
+    #sun_vis = get_sun_sweep(0.04)(1.7987)
+    #plt.figure()
+    #plt.plot(np.concatenate((sun_vis.thetas, [TAU/SUN_R])),
+    #         np.concatenate((sun_vis.rs, [sun_vis.rs[0]])),
+    #         '-*')
+    #plt.show()
+    #exit()
+
+    # TODO I forget what exactly is happening here, but it looks like I'm not doing a binary
+    #  search for param2. I simply take the best from this sweep of 20 and go with that
+    #  WAIT I remember - param2 is not to do with the correct meshing, I was just searching
+    #  over many parameterized suns to find one with the lowest outer radius, I think
     param2s = np.linspace(0.01, 0.2, 20)
     params = []
     lowest = 10
@@ -664,9 +683,11 @@ if __name__ == '__main__':
         if param_opt < lowest:
             lowest_param2 = param2
         lowest = min(param_opt, lowest)
-    #plt.figure()
-    #plt.plot(param2s, params, '+')
-    #plt.show()
+    plt.figure()
+    plt.plot(param2s, params, '+')
+    plt.show()
+
+    print('lowest param2', lowest_param2, 'lowest', lowest)
 
     sun, planet, ring = Gear.get_planetary_from_sun(get_sun_sweep(lowest_param2),
                                                     (1, 20), (1, 20), PLANET_R, RING_R)
