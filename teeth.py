@@ -10,10 +10,15 @@ class ToothProfile:
     # and make a cut at offset p.
     # p is measured in a reference frame where the gear contact point is the origin, and coord is
     # (perpendicular gear edge, tangent to gear edge)
+    # When we then find p in the new space, I'm not sure whether we should use tangenet to the new gear edge
+    # or perpendicular to the line between centers (they are the same for circular gears)
 
     def __init__(self, fun):
         self.fun = fun
 
+    # what do we actually need from gA and gB?
+    # Given a distance along the edge, we need the rotation and pre-tooth radius. We might also need the pre-tooth
+    # edge tangent direction if we choose to use that for the coordinate system. I won't for now.
     def cut_teeth(self, gA, gB, N):
         # cuts N teeth around gA and gB
         # TODO if ratio is not 1 to 1
@@ -23,3 +28,5 @@ class ToothProfile:
 def profile1(x):
     offset = np.sin(x*TAU)
     return (x, offset), (x, offset)
+
+sine_profile = ToothProfile(profile1)

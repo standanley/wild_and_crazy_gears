@@ -96,6 +96,7 @@ class Gear:
     @classmethod
     def fun(cls, dts, drs, r0s, a, self_is_outer=False, partner_is_outer=False):
         # consider [t0, r0] -> [t1, r1] on self
+        # this function returns the corresponding dts for a partner gear
         # NEW we want to be exponential in radial space. curves are a piece of ae^(bt)
         # if we go though (0, r0), (t1, r1) then r1/r0 = e^(b*t1) -> b = log(r1/r0)/t1
         # and a=r0
@@ -117,7 +118,7 @@ class Gear:
 
         flip = -1 if self_is_outer or partner_is_outer else 1
         #assert not ((a < 0) ^ partner_is_outer)
-        def fun_linear(dt, dr, r0, a):
+        def fun_exp(dt, dr, r0, a):
             b = np.log((r0+dr) / r0) / dt
             return -1/b * np.log((a-(r0+dr))/(a - r0))
 
@@ -125,7 +126,7 @@ class Gear:
             return dt * r0 / (a - r0)
 
         const = fun_const(dts, r0s, a)
-        linear = fun_linear(dts, drs, r0s, a)
+        linear = fun_exp(dts, drs, r0s, a)
         zero = np.zeros(dts.shape)
         temp = np.where(drs==0, const, linear)
         result = np.where(dts==0, zero, temp)
@@ -309,7 +310,6 @@ class Gear:
 
 class Assembly:
     def __init__(self, ts, gears, angles, centers):
-        # TODO centers need to be able to move?
         self.ts = ts
         self.M = len(self.ts)
         self.gears = gears
@@ -430,7 +430,7 @@ class Assembly:
             [sun_angles1, planet_angles1, ring_angles1],
             [zero_centers, planet_centers1, zero_centers]
         )
-        #spr.animate()
+        spr.animate()
 
         # with ring gear stationary
         planet_dist = planet_centers[0][0]
@@ -575,6 +575,11 @@ def test_simple():
 
 if __name__ == '__main__':
 
+    SUN_R = 1
+    PLANET_R = 1
+    RING_R = 4
+
+
     def get_sun(param):
         thetas = np.array([
             0,
@@ -617,7 +622,7 @@ if __name__ == '__main__':
                 param2+miter_width,
                 param2+miter_width,
                 param2+2*miter_width,
-            ]) * TAU
+            ]) * TAU/SUN_R
             rs = np.array([
                 1,
                 1+miter_height,
@@ -626,7 +631,7 @@ if __name__ == '__main__':
                 1+miter_height,
                 1,
             ])
-            sun = Gear(1, thetas, rs)
+            sun = Gear(SUN_R, thetas, rs)
             return sun
         return get_sun
 
@@ -636,7 +641,7 @@ if __name__ == '__main__':
     lowest_param2 = None
     for param2 in param2s:
         get_sun = get_sun_sweep(param2)
-        param_opt = Gear.get_planetary_from_sun(get_sun, (1, 10), (1, 10), 1, 4, return_param=True)
+        param_opt = Gear.get_planetary_from_sun(get_sun, (1, 10), (1, 10), PLANET_R, RING_R, return_param=True)
         params.append(param_opt)
         if param_opt < lowest:
             lowest_param2 = param2
@@ -645,7 +650,8 @@ if __name__ == '__main__':
     plt.plot(param2s, params, '+')
     plt.show()
 
-    sun, planet, ring = Gear.get_planetary_from_sun(get_sun_sweep(lowest_param2), (1, 20), (1, 20), 1, 4)
+    sun, planet, ring = Gear.get_planetary_from_sun(get_sun_sweep(lowest_param2),
+                                                    (1, 20), (1, 20), PLANET_R, RING_R)
     planet_dist = sun.rs[0] + planet.rs[0]
 
     #fig = plt.figure()
@@ -655,5 +661,6 @@ if __name__ == '__main__':
     #planet.update_plot([planet_dist, 0], TAU/2, planet_curves)
     #ring.plot(ax)
     #plt.show()
+
 
     Assembly.mesh_planetary(sun, planet, ring)
