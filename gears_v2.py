@@ -332,6 +332,9 @@ class Assembly:
         assert all(abs(g1.rs + g2.rs*flip - distance) < 1e-4)
 
         # g1 goes from r1 to r2 as g2 goes from d-r1 to d-r2
+        # The goal is to create angles2, the angle gear2 is at
+        # for each corresponding g1 angle in angles.
+        # segment counts through segments in g.thetas and g.rs
         angles2 = []
         segment = 0
         repetition_count = 0
@@ -339,6 +342,8 @@ class Assembly:
             # TODO I could make better use of numpy here by doing a whole segment at a time
 
             def get_thetas(i):
+                # start and end thetas for g1 this segment. Takes into account the fact that
+                # we may loop around multiple times (repetition_count > 0) so theta may be >tau
                 next_i = (i+1)%g1.N
                 theta = g1.thetas[i]
                 theta += repetition_count * TAU / g1.repetitions
@@ -348,8 +353,11 @@ class Assembly:
                 return theta, next_theta1
 
             theta, next_theta1 = get_thetas(segment)
+            # this while loop usually runs 0 times, and only runs when we cross into the next
+            # segment, and can occasionally run >1 times when the segment is short/zero
+            # compared to the distance between angles
             while angle >= next_theta1:
-                segment = (segment+1)%g1.N
+                segment = (segment+1) % g1.N
                 if segment == 0:
                     repetition_count += 1
                 theta, next_theta1 = get_thetas(segment)
@@ -359,10 +367,14 @@ class Assembly:
             dtheta1_segment = next_theta1 - theta
             dtheta1 = angle - theta
 
+            # note that dtheta1_segment will never be 0 because the above while loop
+            # effectively skips over those segments
             b = np.log((g1.rs[next_segment]) / g1.rs[segment]) / dtheta1_segment
             r1 = g1.rs[segment] * np.exp(b*dtheta1)
             dr1 = r1 - g1.rs[segment]
 
+            # note that we are calculating here the additional theta turned by g2
+            # from the start of the segment to here, NOT from the last angle2 to here
             dtheta2 = Gear.fun(dtheta1,
                                dr1,
                                g1.rs[segment],
@@ -444,7 +456,7 @@ class Assembly:
             [sun_angles2, planet_angles2, ring_angles2],
             [zero_centers, planet_centers2, zero_centers]
         )
-        #spr2.animate()
+        spr2.animate()
 
 
         # now warp time to make sun rotation constant speed
@@ -575,9 +587,9 @@ def test_simple():
 
 if __name__ == '__main__':
 
-    SUN_R = 1
+    SUN_R = 2
     PLANET_R = 1
-    RING_R = 4
+    RING_R = 5
 
 
     def get_sun(param):
