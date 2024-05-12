@@ -249,7 +249,7 @@ class Gear:
             return thetas
 
     def get_plot_coords(self, center, angle):
-        M = 100
+        M = 4*5*7 * 4
         sample_thetas = np.zeros(0)
         sample_rs = np.zeros(0)
         for i in range(self.N):
@@ -323,9 +323,9 @@ class Assembly:
     @classmethod
     def mesh(cls, g1, g2):
         assert g1.N == g2.N
-        M = 500
+        M = 4*5*7 * 4
         ts = np.linspace(0, 1, M, endpoint=False)
-        angles1 = ts * TAU
+        angles1 = ts * TAU / g1.repetitions
 
         flip = -1 if (g1.is_outer or g2.is_outer) else 1
         distance = np.mean(g1.rs + g2.rs*flip)
@@ -344,6 +344,7 @@ class Assembly:
             def get_thetas(i):
                 # start and end thetas for g1 this segment. Takes into account the fact that
                 # we may loop around multiple times (repetition_count > 0) so theta may be >tau
+                # NOTE I later changed angles such that it won't go through more than once
                 next_i = (i+1)%g1.N
                 theta = g1.thetas[i]
                 theta += repetition_count * TAU / g1.repetitions
@@ -413,7 +414,8 @@ class Assembly:
         pr = cls.mesh(planet, ring)
         #pr.animate()
         M = sp.M
-        R = ring.repetitions
+        # TODO I think the lcm is better than the product here
+        R = sun.repetitions * planet.repetitions * ring.repetitions
 
         # If we drive the pr from the planet gear, we already have a mapping from planet thing to gear thing.
         # We can just warp the speed of that and put the sun in the center.
@@ -431,9 +433,9 @@ class Assembly:
 
         # with planet gear center stationary
         ts = repeat(sp.ts, R, 1)
-        sun_angles1 = repeat(sp.angles[0], R, TAU)
-        planet_angles1 = repeat(sp.angles[1], R, TAU)
-        ring_angles1 = repeat(ring_angles, R, TAU/R)
+        sun_angles1 = repeat(sp.angles[0], R, TAU/sun.repetitions)
+        planet_angles1 = repeat(sp.angles[1], R, TAU/planet.repetitions)
+        ring_angles1 = repeat(ring_angles, R, TAU/ring.repetitions)
         zero_centers = np.zeros((M*R, 2))
         planet_centers1 = np.concatenate([planet_centers]*R)
         spr = Assembly(
@@ -442,7 +444,7 @@ class Assembly:
             [sun_angles1, planet_angles1, ring_angles1],
             [zero_centers, planet_centers1, zero_centers]
         )
-        spr.animate()
+        #spr.animate()
 
         # with ring gear stationary
         planet_dist = planet_centers[0][0]
@@ -456,7 +458,7 @@ class Assembly:
             [sun_angles2, planet_angles2, ring_angles2],
             [zero_centers, planet_centers2, zero_centers]
         )
-        spr2.animate()
+        #spr2.animate()
 
 
         # now warp time to make sun rotation constant speed
@@ -464,9 +466,9 @@ class Assembly:
         ts_warped_inverse = Interp(ts_warped, spr2.ts, ts_warped[-1])(spr2.ts)
         spr2.time_warp(ts_warped_inverse)
 
-        num_planets = 5
+        num_planets = sun.repetitions + ring.repetitions
         for i in range(1, num_planets):
-            offset = (len(spr2.ts)*i)//num_planets
+            offset = (len(spr2.ts)*i)//(num_planets * sun.repetitions)
             print(offset)
             spr2.gears.append(planet)
             spr2.angles.append(np.roll(spr2.angles[1], offset))
@@ -511,7 +513,7 @@ class Assembly:
     def animate(self):
         fig = plt.figure()
         ax = fig.add_subplot()
-        SIZE = 20
+        SIZE = 4
         ax.set_xlim([-SIZE, SIZE])
         ax.set_ylim([-SIZE, SIZE])
         ax.set_aspect('equal')
@@ -540,13 +542,15 @@ class Assembly:
 
 
 def test_simple():
+    g1_R = 2
+    g2_R = 3
     thetas = np.array([
         0.0,
         0.4,
         0.4,
         0.6,
         0.9,
-    ]) * TAU / 1
+    ]) * TAU / g1_R
     rs = np.array([
         1,
         4,
@@ -571,8 +575,8 @@ def test_simple():
     #    1.0,
     # ])
 
-    g1 = Gear(1, thetas, rs, is_outer=False, mirror=False)
-    g2 = g1.get_partner(3, partner_outer=True)
+    g1 = Gear(g1_R, thetas, rs, is_outer=False, mirror=False)
+    g2 = g1.get_partner(g2_R, partner_outer=True)
     print('finished creating gears')
 
     # g1.plot()
@@ -586,6 +590,8 @@ def test_simple():
 
 
 if __name__ == '__main__':
+
+    #test_simple()
 
     SUN_R = 2
     PLANET_R = 1
@@ -658,9 +664,9 @@ if __name__ == '__main__':
         if param_opt < lowest:
             lowest_param2 = param2
         lowest = min(param_opt, lowest)
-    plt.figure()
-    plt.plot(param2s, params, '+')
-    plt.show()
+    #plt.figure()
+    #plt.plot(param2s, params, '+')
+    #plt.show()
 
     sun, planet, ring = Gear.get_planetary_from_sun(get_sun_sweep(lowest_param2),
                                                     (1, 20), (1, 20), PLANET_R, RING_R)
