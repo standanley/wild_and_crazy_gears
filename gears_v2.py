@@ -295,7 +295,8 @@ class Gear:
         xs, ys, xs_fine, ys_fine = self.get_plot_coords([0, 0], 0)
 
         fine, = ax.plot(xs_fine, ys_fine, '--')
-        coarse, = ax.plot(xs, ys, '*')
+        #coarse, = ax.plot(xs, ys, '*')
+        coarse, = ax.plot([], [], '*')
         point, = ax.plot([0], [0], '+')
         return [fine, coarse, point]
 
@@ -303,7 +304,7 @@ class Gear:
         fine, coarse, point = curves
         xs, ys, xs_fine, ys_fine = self.get_plot_coords(center, angle)
         fine.set_data(xs_fine, ys_fine)
-        coarse.set_data(xs, ys)
+        #coarse.set_data(xs, ys)
         point.set_data([center[0]], [center[1]])
         return [fine, coarse, point]
 
@@ -633,7 +634,7 @@ if __name__ == '__main__':
         def get_sun(param):
             miter_width = 0.06
             miter_height = 0.6
-            miter2_width = 0.04
+            miter2_width = 0.05
             miter2_height = 0.1
             thetas = np.array([
                 0,
@@ -642,8 +643,8 @@ if __name__ == '__main__':
                 miter_width + miter2_width,
                 param2+miter_width + miter2_width,
                 param2+miter_width + miter2_width,
-                param2+2*miter_width + miter2_width,
-                param2 + 2*miter_width + 2*miter2_width
+                param2+(2*miter_width + miter2_width)*1.5,
+                param2 + (2*miter_width + 2*miter2_width)*1.5
             ]) * TAU/SUN_R
             rs = np.array([
                 1,
@@ -651,7 +652,7 @@ if __name__ == '__main__':
                 1+miter_height,
                 param,
                 param,
-                1+miter_height,
+                1+miter_height*1.3,
                 1+miter2_height,
                 1,
             ])
