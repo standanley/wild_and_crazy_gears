@@ -24,7 +24,7 @@ class Assembly:
     @classmethod
     def mesh(cls, g1, g2):
         assert g1.N == g2.N
-        M = 4*5*7 * 4
+        M = 4*5*7
         ts = np.linspace(0, 1, M, endpoint=False)
         angles1 = ts * TAU / g1.repetitions
 
@@ -99,7 +99,7 @@ class Assembly:
 
         center1, center2 = [-distance/2, 0], [distance/2, 0]
 
-        a = Assembly(ts,
+        a = cls(ts,
                      [g1, g2],
                      [angles1, angles2],
                      [[center1]*M, [center2]*M]
@@ -201,13 +201,19 @@ class Assembly:
             new_ys = Interp(self.ts, ys, self.ts[-1])(new_ts)
             new_centers = np.stack((new_xs, new_ys), axis=1)
             self.centers[i] = new_centers
-    def animate(self):
+
+
+    def get_fig_ax(self):
         fig = plt.figure()
         ax = fig.add_subplot()
         SIZE = 4
         ax.set_xlim([-SIZE, SIZE])
         ax.set_ylim([-SIZE, SIZE])
         ax.set_aspect('equal')
+        return fig, ax
+
+    def animate(self):
+        fig, ax = self.get_fig_ax()
 
         curves_lists = []
         for g in self.gears:

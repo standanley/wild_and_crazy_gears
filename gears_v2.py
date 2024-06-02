@@ -1,27 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from assembly_3d import Assembly3D
 from gear import Gear
+from gear_3d import Gear3D
 from assembly import Assembly
 
 TAU = np.pi*2
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 def test_simple():
     g1_R = 2
@@ -39,7 +24,7 @@ def test_simple():
         3,
         3,
         1.2,
-    ])
+    ]) / 6.6025 * 1.57
     # thetas = np.array([
     #    0.0,
     #    0.0,
@@ -58,7 +43,7 @@ def test_simple():
     # ])
 
     g1 = Gear(g1_R, thetas, rs, is_outer=False, mirror=False)
-    g2 = g1.get_partner(g2_R, partner_outer=True)
+    g2 = g1.get_partner(g2_R, partner_outer=False)
     print('finished creating gears')
 
     # g1.plot()
@@ -73,7 +58,7 @@ def test_simple():
 
 if __name__ == '__main__':
 
-    #test_simple()
+    test_simple()
 
     SUN_R = 2
     PLANET_R = 1

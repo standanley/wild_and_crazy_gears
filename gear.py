@@ -113,7 +113,7 @@ class Gear:
 
         partner_thetas = np.concatenate(([0], np.cumsum(partner_dthetas)[:-1]))
 
-        partner = Gear(
+        partner = type(self)(
             partner_repetitions,
             partner_thetas,
             partner_rs,
@@ -172,8 +172,7 @@ class Gear:
         else:
             return thetas
 
-    def get_plot_coords(self, center, angle):
-        M = 4*5*7 * 4
+    def get_r_vs_theta(self, M):
         sample_thetas = np.zeros(0)
         sample_rs = np.zeros(0)
         for i in range(self.N):
@@ -198,6 +197,15 @@ class Gear:
 
         sample_thetas = np.concatenate([sample_thetas+(TAU/self.repetitions*i) for i in range(self.repetitions)])
         sample_rs = np.concatenate([sample_rs]*self.repetitions)
+
+        return sample_thetas, sample_rs
+
+
+    def get_plot_coords(self, center, angle):
+        assert len(center) == 2
+        M = 4*5*7 * 4
+
+        sample_thetas, sample_rs = self.get_r_vs_theta(M)
 
         sample_thetas = np.concatenate((sample_thetas, [sample_thetas[0]]))
         sample_rs = np.concatenate((sample_rs, [sample_rs[0]]))
