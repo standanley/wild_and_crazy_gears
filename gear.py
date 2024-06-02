@@ -92,17 +92,17 @@ class Gear:
             a = xs[0]
             partner_dts = self.get_partner_dts_from_dist(a, partner_outer)
             return (sum(partner_dts) - TAU/partner_repetitions)**2
-        res = scipy.optimize.minimize(error, [(a_min+a_max)/2], bounds=[(a_min, a_max)])#, method='Nelder-Mead')
+        res = scipy.optimize.minimize(error, [(a_min+a_max)/2], bounds=[(a_min, a_max)], method='Nelder-Mead')
         assert res.success
         a_opt = res.x[0]
         print('Optimizer result:', a_opt)
 
-
-        if False:
+        if True:
             xs = np.linspace(a_min, a_max, 100)
             ys = np.array([sum(self.get_partner_dts_from_dist(x, partner_outer)) for x in xs])
             plt.plot([xs[0], xs[-1]], [TAU/partner_repetitions]*2, '--')
             plt.plot(xs, ys, '*')
+            plt.plot([a_opt], [sum(self.get_partner_dts_from_dist(a_opt, partner_outer))], 'x')
             plt.show()
 
         flip = -1 if self.is_outer or partner_outer else 1
