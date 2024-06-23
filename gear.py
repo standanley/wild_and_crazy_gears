@@ -97,7 +97,8 @@ class Gear:
         a_opt = res.x[0]
         print('Optimizer result:', a_opt)
 
-        if True:
+        if False:
+            # optimization visualization
             xs = np.linspace(a_min, a_max, 100)
             ys = np.array([sum(self.get_partner_dts_from_dist(x, partner_outer)) for x in xs])
             plt.plot([xs[0], xs[-1]], [TAU/partner_repetitions]*2, '--')

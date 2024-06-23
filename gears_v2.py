@@ -24,7 +24,7 @@ def test_simple():
         3,
         3,
         1.2,
-    ]) / 6.6025 * 1.57
+    ]) / 6.6025 * 2.5
     # thetas = np.array([
     #    0.0,
     #    0.0,
@@ -42,7 +42,7 @@ def test_simple():
     #    1.0,
     # ])
 
-    g1 = Gear(g1_R, thetas, rs, is_outer=False, mirror=False)
+    g1 = Gear3D(g1_R, thetas, rs, is_outer=False, mirror=False)
     g2 = g1.get_partner(g2_R, partner_outer=False)
     print('finished creating gears')
 
@@ -50,7 +50,7 @@ def test_simple():
     # g2.plot()
     # plt.show()
 
-    assembly = Assembly.mesh(g1, g2)
+    assembly = Assembly3D.mesh(g1, g2)
     assembly.animate()
 
     exit()

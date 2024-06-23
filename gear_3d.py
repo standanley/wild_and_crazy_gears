@@ -29,10 +29,11 @@ class Gear3D(Gear):
             axis_angle = center[0]
             effective_theta = self.transform_thetas(theta - angle)
 
-            x = a * np.cos(effective_theta) + axis_angle
-            y = a * np.sin(effective_theta)
-            z = 0
-            return x, y, z
+            # # test with 2D transform
+            # x = a * np.cos(effective_theta) + axis_angle
+            # y = a * np.sin(effective_theta)
+            # z = 0
+            # return x, y, z
 
             r = 1
             # 1: axis is +z, not rotated
@@ -51,12 +52,12 @@ class Gear3D(Gear):
 
         transform_vec = np.vectorize(transform, signature='(),()->(),(),()')
 
-        xs, ys = self.polar_to_rect(self.transform_thetas(self.thetas - angle), self.rs, center)
-        xs_fine, ys_fine = self.polar_to_rect(self.transform_thetas(sample_thetas - angle), sample_as, center)
-        zs = [0]*len(xs)
-        zs_fine = [0]*len(xs_fine)
-        #xs, ys, zs = transform_vec(self.thetas, self.rs)
-        #xs_fine, ys_fine, zs_fine = transform_vec(sample_thetas, sample_as)
+        # xs, ys = self.polar_to_rect(self.transform_thetas(self.thetas - angle), self.rs, center)
+        # xs_fine, ys_fine = self.polar_to_rect(self.transform_thetas(sample_thetas - angle), sample_as, center)
+        # zs = [0]*len(xs)
+        # zs_fine = [0]*len(xs_fine)
+        xs, ys, zs = transform_vec(self.thetas, self.rs)
+        xs_fine, ys_fine, zs_fine = transform_vec(sample_thetas, sample_as)
         return xs, ys, zs, xs_fine, ys_fine, zs_fine
 
     def plot(self, ax=None):
