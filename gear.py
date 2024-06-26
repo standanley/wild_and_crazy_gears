@@ -6,12 +6,14 @@ from functools import lru_cache
 TAU = np.pi*2
 
 class Gear:
-    def __init__(self, repetitions, thetas, rs, is_outer=False, mirror=False, ignore_checks=False):
-        self.repetitions = repetitions
+    def __init__(self, repetitions_numerator, repetitions_denominator, thetas, rs, is_outer=False, mirror=False, ignore_checks=False):
+        self.repetitions_numerator = repetitions_numerator
+        self.repetitions_denominator = repetitions_denominator
+        self.repetitions = repetitions_numerator / repetitions_denominator
         self.thetas = thetas
         if not ignore_checks:
             assert thetas[0] == 0
-            assert thetas[-1] < TAU/repetitions
+            assert thetas[-1] < TAU/self.repetitions
         self.rs = rs
         self.N = len(thetas)
         self.is_outer = is_outer
@@ -64,7 +66,8 @@ class Gear:
         partner_dts = self.fun(dts, drs, self.rs, a, self_is_outer=self.is_outer, partner_is_outer=partner_outer)
         return partner_dts
 
-    def get_partner(self, partner_repetitions, partner_outer=False):
+    def get_partner(self, partner_repetitions_N, partner_repetitions_D, partner_outer=False):
+        partner_repetitions = partner_repetitions_N / partner_repetitions_D
 
         assert not (self.is_outer and partner_outer)
         if self.is_outer:
@@ -116,7 +119,8 @@ class Gear:
         partner_thetas = np.concatenate(([0], np.cumsum(partner_dthetas)[:-1]))
 
         partner = type(self)(
-            partner_repetitions,
+            partner_repetitions_N,
+            partner_repetitions_D,
             partner_thetas,
             partner_rs,
             is_outer=partner_outer,
@@ -199,8 +203,8 @@ class Gear:
             sample_thetas = np.concatenate((sample_thetas, section_ts))
             sample_rs = np.concatenate((sample_rs, section_rs))
 
-        sample_thetas = np.concatenate([sample_thetas+(TAU/self.repetitions*i) for i in range(self.repetitions)])
-        sample_rs = np.concatenate([sample_rs]*self.repetitions)
+        sample_thetas = np.concatenate([sample_thetas+(TAU/self.repetitions*i) for i in range(self.repetitions_numerator)])
+        sample_rs = np.concatenate([sample_rs]*self.repetitions_numerator)
 
         return sample_thetas, sample_rs
 
