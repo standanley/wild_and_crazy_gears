@@ -9,17 +9,15 @@ from assembly import Assembly
 TAU = np.pi*2
 
 def test_simple():
-    g1_RN = 1
-    g1_RD = 2
-    g2_RN = 5
-    g2_RD = 3
+    g1_R = (1, 2)
+    g2_R = (5, 3)
     thetas = np.array([
         0.0,
         0.4,
         0.4,
         0.6,
         0.9,
-    ]) * TAU / (g1_RN/g1_RD)
+    ]) * TAU / (g1_R[0]/g1_R[1])
     rs = np.array([
         1,
         4,
@@ -44,9 +42,9 @@ def test_simple():
     #    1.0,
     # ])
 
-    g1 = Gear(g1_RN, g1_RD, thetas, rs, is_outer=False, mirror=False)
+    g1 = Gear(g1_R, thetas, rs, is_outer=False, mirror=False)
     #g1 = Gear3D(g1_R, thetas, rs, is_outer=False, mirror=False)
-    g2 = g1.get_partner(g2_RN, g2_RD, partner_outer=True)
+    g2 = g1.get_partner(g2_R, partner_outer=True)
     print('finished creating gears')
 
     # g1.plot()

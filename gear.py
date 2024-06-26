@@ -6,10 +6,15 @@ from functools import lru_cache
 TAU = np.pi*2
 
 class Gear:
-    def __init__(self, repetitions_numerator, repetitions_denominator, thetas, rs, is_outer=False, mirror=False, ignore_checks=False):
-        self.repetitions_numerator = repetitions_numerator
-        self.repetitions_denominator = repetitions_denominator
-        self.repetitions = repetitions_numerator / repetitions_denominator
+    def __init__(self, repetitions, thetas, rs, is_outer=False, mirror=False, ignore_checks=False):
+        if isinstance(repetitions, tuple):
+            self.repetitions_numerator = repetitions[0]
+            self.repetitions_denominator = repetitions[1]
+            self.repetitions = repetitions[0] / repetitions[1]
+        else:
+            self.repetitions_numerator = repetitions
+            self.repetitions_denominator = 1
+            self.repetitions = repetitions
         self.thetas = thetas
         if not ignore_checks:
             assert thetas[0] == 0
@@ -66,28 +71,31 @@ class Gear:
         partner_dts = self.fun(dts, drs, self.rs, a, self_is_outer=self.is_outer, partner_is_outer=partner_outer)
         return partner_dts
 
-    def get_partner(self, partner_repetitions_N, partner_repetitions_D, partner_outer=False):
-        partner_repetitions = partner_repetitions_N / partner_repetitions_D
+    def get_partner(self, partner_repetitions, partner_outer=False):
+        if isinstance(partner_repetitions, tuple):
+            partner_r = partner_repetitions[0] / partner_repetitions[1]
+        else:
+            partner_r = partner_repetitions
 
         assert not (self.is_outer and partner_outer)
         if self.is_outer:
-            assert self.repetitions > partner_repetitions
+            assert self.repetitions > partner_r
         if partner_outer:
-            assert partner_repetitions > self.repetitions
+            assert partner_r > self.repetitions
 
 
         if not partner_outer and not self.is_outer:
-            a_min_0 = np.min(self.rs) * (1 + partner_repetitions / self.repetitions)
+            a_min_0 = np.min(self.rs) * (1 + partner_r / self.repetitions)
             a_min = max(np.max(self.rs), a_min_0)
-            a_max = np.max(self.rs) * (1 + partner_repetitions / self.repetitions)
+            a_max = np.max(self.rs) * (1 + partner_r / self.repetitions)
         elif self.is_outer:
-            a_min = np.min(self.rs) * (1 - partner_repetitions / self.repetitions)
-            a_max_0 = np.max(self.rs) * (1 - partner_repetitions / self.repetitions)
+            a_min = np.min(self.rs) * (1 - partner_r / self.repetitions)
+            a_max_0 = np.max(self.rs) * (1 - partner_r / self.repetitions)
             a_max = min(np.min(self.rs), a_max_0)
         elif partner_outer:
             # min and max kinda get swapped because a is always negative
-            a_min = np.max(self.rs) * (1 - partner_repetitions / self.repetitions)
-            a_max = np.min(self.rs) * (1 - partner_repetitions / self.repetitions)
+            a_min = np.max(self.rs) * (1 - partner_r / self.repetitions)
+            a_max = np.min(self.rs) * (1 - partner_r / self.repetitions)
         else:
             assert False
 
@@ -95,7 +103,7 @@ class Gear:
         def error(xs):
             a = xs[0]
             partner_dts = self.get_partner_dts_from_dist(a, partner_outer)
-            return (sum(partner_dts) - TAU/partner_repetitions)**2
+            return (sum(partner_dts) - TAU/partner_r)**2
         res = scipy.optimize.minimize(error, [(a_min+a_max)/2], bounds=[(a_min, a_max)], method='Nelder-Mead')
         assert res.success
         a_opt = res.x[0]
@@ -105,7 +113,7 @@ class Gear:
             # optimization visualization
             xs = np.linspace(a_min, a_max, 100)
             ys = np.array([sum(self.get_partner_dts_from_dist(x, partner_outer)) for x in xs])
-            plt.plot([xs[0], xs[-1]], [TAU/partner_repetitions]*2, '--')
+            plt.plot([xs[0], xs[-1]], [TAU/partner_r]*2, '--')
             plt.plot(xs, ys, '*')
             plt.plot([a_opt], [sum(self.get_partner_dts_from_dist(a_opt, partner_outer))], 'x')
             plt.show()
@@ -114,13 +122,12 @@ class Gear:
         partner_rs = (a_opt - self.rs) * flip
         partner_dthetas = self.get_partner_dts_from_dist(a_opt, partner_outer) # self.fun(dts, drs, self.rs, a_opt, self_is_outer=self.is_outer, partner_is_outer=partner_outer)
 
-        assert (sum(partner_dthetas) - TAU/partner_repetitions < 1e-2)
+        assert (sum(partner_dthetas) - TAU/partner_r < 1e-2)
 
         partner_thetas = np.concatenate(([0], np.cumsum(partner_dthetas)[:-1]))
 
         partner = type(self)(
-            partner_repetitions_N,
-            partner_repetitions_D,
+            partner_repetitions,
             partner_thetas,
             partner_rs,
             is_outer=partner_outer,
