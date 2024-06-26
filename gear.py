@@ -1,6 +1,7 @@
 import numpy as np
 import scipy
 import matplotlib.pyplot as plt
+from functools import lru_cache
 
 TAU = np.pi*2
 
@@ -173,6 +174,8 @@ class Gear:
         else:
             return thetas
 
+    # I cache this because it gets called every frame of animation
+    @lru_cache
     def get_r_vs_theta(self, M):
         sample_thetas = np.zeros(0)
         sample_rs = np.zeros(0)
