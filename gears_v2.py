@@ -10,9 +10,9 @@ TAU = np.pi*2
 
 def test_simple():
     g1_RN = 1
-    g1_RD = 1
-    g2_RN = 3
-    g2_RD = 2
+    g1_RD = 2
+    g2_RN = 5
+    g2_RD = 3
     thetas = np.array([
         0.0,
         0.4,
@@ -46,7 +46,7 @@ def test_simple():
 
     g1 = Gear(g1_RN, g1_RD, thetas, rs, is_outer=False, mirror=False)
     #g1 = Gear3D(g1_R, thetas, rs, is_outer=False, mirror=False)
-    g2 = g1.get_partner(g2_RN, g2_RD, partner_outer=False)
+    g2 = g1.get_partner(g2_RN, g2_RD, partner_outer=True)
     print('finished creating gears')
 
     # g1.plot()
