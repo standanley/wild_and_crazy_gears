@@ -107,7 +107,7 @@ class Assembly:
         return a
 
     @classmethod
-    def mesh_planetary(cls, sun, planet, ring):
+    def mesh_planetary(cls, sun, planet, ring, planet_skip=1):
         def repeat(xs, R, period):
             return np.concatenate([xs + i*period for i in range(R)])
         sp = cls.mesh(sun, planet)
@@ -173,9 +173,10 @@ class Assembly:
         sr_sum_denominator = sun.repetitions_denominator * ring.repetitions_denominator
         sr_sum_gcd = np.gcd(sr_sum_numerator, sr_sum_denominator)
         num_planets = sr_sum_numerator // sr_sum_gcd
-        for i in range(1, num_planets):
-            # TODO I'm not 100% sure adding _numerator was right in the next line
-            offset = (len(spr2.ts)*i)//(num_planets * sun.repetitions_numerator)
+        for i in range(planet_skip, num_planets, planet_skip):
+            print('planet instantiation', i, num_planets, planet_skip)
+            # TODO I'm not 100% sure the next line is correct
+            offset = (len(spr2.ts)*i)//(num_planets * sun.repetitions_numerator // sun.repetitions_denominator)
             print(offset)
             spr2.gears.append(planet)
             spr2.angles.append(np.roll(spr2.angles[1], offset))
@@ -212,7 +213,7 @@ class Assembly:
     def get_fig_ax(self):
         fig = plt.figure()
         ax = fig.add_subplot()
-        SIZE = 15
+        SIZE = 6
         ax.set_xlim([-SIZE, SIZE])
         ax.set_ylim([-SIZE, SIZE])
         ax.set_aspect('equal')

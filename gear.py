@@ -153,8 +153,9 @@ class Gear:
 
         def error(xs):
             sun, planet, planet_dthetas, ring_dthetas = try_planetary(xs)
-            planet_error = np.sum(planet_dthetas) - TAU/planet_repetitions
-            ring_error = np.sum(ring_dthetas) - TAU/ring_repetitions
+            planet_error = np.sum(planet_dthetas) - TAU/planet.repetitions
+            ring_fake = Gear(ring_repetitions, [0], [0])
+            ring_error = np.sum(ring_dthetas) - TAU/ring_fake.repetitions
             total_error = planet_error**2 + ring_error**2
             return total_error
 
