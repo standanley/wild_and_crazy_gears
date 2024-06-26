@@ -116,7 +116,7 @@ class Assembly:
         #pr.animate()
         M = sp.M
         # TODO I think the lcm is better than the product here
-        R = sun.repetitions * planet.repetitions * ring.repetitions
+        R = sun.repetitions_numerator * planet.repetitions_numerator * ring.repetitions_numerator
 
         # If we drive the pr from the planet gear, we already have a mapping from planet thing to gear thing.
         # We can just warp the speed of that and put the sun in the center.
@@ -167,9 +167,15 @@ class Assembly:
         ts_warped_inverse = Interp(ts_warped, spr2.ts, ts_warped[-1])(spr2.ts)
         spr2.time_warp(ts_warped_inverse)
 
-        num_planets = sun.repetitions + ring.repetitions
+        # num_planets is I think the numerator of the sum
+        #num_planets = sun.repetitions + ring.repetitions
+        sr_sum_numerator = sun.repetitions_numerator*ring.repetitions_denominator + ring.repetitions_numerator*sun.repetitions_denominator
+        sr_sum_denominator = sun.repetitions_denominator * ring.repetitions_denominator
+        sr_sum_gcd = np.gcd(sr_sum_numerator, sr_sum_denominator)
+        num_planets = sr_sum_numerator // sr_sum_gcd
         for i in range(1, num_planets):
-            offset = (len(spr2.ts)*i)//(num_planets * sun.repetitions)
+            # TODO I'm not 100% sure adding _numerator was right in the next line
+            offset = (len(spr2.ts)*i)//(num_planets * sun.repetitions_numerator)
             print(offset)
             spr2.gears.append(planet)
             spr2.angles.append(np.roll(spr2.angles[1], offset))
@@ -206,7 +212,7 @@ class Assembly:
     def get_fig_ax(self):
         fig = plt.figure()
         ax = fig.add_subplot()
-        SIZE = 4
+        SIZE = 15
         ax.set_xlim([-SIZE, SIZE])
         ax.set_ylim([-SIZE, SIZE])
         ax.set_aspect('equal')
