@@ -163,11 +163,14 @@ class Gear:
         init = np.mean(bounds, axis=1)
         res = scipy.optimize.minimize(error, init, bounds=bounds, method='Nelder-Mead')
         assert res.success
+
         print('optimizer result', res.x, 'bounds', bounds)
         print('error', res.fun)
         param_opt, carrier_dist_opt = res.x
         if return_param:
             return param_opt
+        if any(any(abs(opt-b)<1e-3 for b in bound) for opt, bound in zip(res.x, bounds)):
+            assert False, 'Check bounds'
 
         sun, planet, planet_dthetas, ring_dthetas = try_planetary(res.x)
         ring_thetas = np.concatenate(([0], np.cumsum(ring_dthetas)[:-1]))

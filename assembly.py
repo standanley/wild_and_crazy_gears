@@ -22,7 +22,7 @@ class Assembly:
         assert all(len(x)==self.M for x in self.centers)
 
     @classmethod
-    def mesh(cls, g1, g2):
+    def mesh(cls, g1, g2, debug=False):
         assert g1.N == g2.N
         M = 4*5*7
         ts = np.linspace(0, 1, M, endpoint=False)
@@ -86,6 +86,12 @@ class Assembly:
             angles2.append(g2.thetas[segment] + dtheta2)
         angles2 = np.array(angles2)
 
+        if debug:
+            plt.plot(angles1)
+            plt.plot(angles2)
+            plt.grid()
+            plt.show()
+
         # TODO I'm not sure this next line is right
         if g1.mirror:
             angles1 += TAU/2
@@ -108,12 +114,15 @@ class Assembly:
 
     @classmethod
     def mesh_planetary(cls, sun, planet, ring, planet_skip=1):
+        debug = False
         def repeat(xs, R, period):
             return np.concatenate([xs + i*period for i in range(R)])
-        sp = cls.mesh(sun, planet)
-        #sp.animate()
-        pr = cls.mesh(planet, ring)
-        #pr.animate()
+        sp = cls.mesh(sun, planet, debug=False)
+        if debug:
+            sp.animate()
+        pr = cls.mesh(planet, ring, debug=False)
+        if debug:
+            pr.animate()
         M = sp.M
         # TODO I think the lcm is better than the product here
         R = sun.repetitions_numerator * planet.repetitions_numerator * ring.repetitions_numerator
@@ -127,10 +136,11 @@ class Assembly:
         planet_centers = np.array(sp.centers[1]) - np.array(sp.centers[0])
 
 
-        #plt.figure()
-        #plt.plot(*pr.angles, '--')
-        #plt.plot(sp.angles[1], ring_angles)
-        #plt.show()
+        if debug:
+            plt.figure()
+            plt.plot(*pr.angles, '--')
+            plt.plot(sp.angles[1], ring_angles)
+            plt.show()
 
         # with planet gear center stationary
         ts = repeat(sp.ts, R, 1)
@@ -145,7 +155,8 @@ class Assembly:
             [sun_angles1, planet_angles1, ring_angles1],
             [zero_centers, planet_centers1, zero_centers]
         )
-        #spr.animate()
+        if debug:
+            spr.animate()
 
         # with ring gear stationary
         planet_dist = planet_centers[0][0]
@@ -159,7 +170,8 @@ class Assembly:
             [sun_angles2, planet_angles2, ring_angles2],
             [zero_centers, planet_centers2, zero_centers]
         )
-        #spr2.animate()
+        if debug:
+            spr2.animate()
 
 
         # now warp time to make sun rotation constant speed

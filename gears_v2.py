@@ -60,45 +60,45 @@ def test_simple():
 
 def test_planetary():
 
-    SUN_R = (2, 1)
-    PLANET_R = (3, 2)
-    RING_R = (3, 1)
+    SUN_R = (3, 2)
+    PLANET_R = (1, 1)
+    RING_R = (11, 3)
 
 
     def get_sun(param):
+        thetas = np.array([
+            0,
+            0.2,
+            0.3,
+            0.5,
+            0.9,
+        ]) * TAU / (SUN_R[0]/SUN_R[1])
+        rs = np.array([
+            1.0,
+            1.5,
+            param,
+            param,
+            1.5,
+        ])
         #thetas = np.array([
         #    0,
-        #    0.2,
-        #    0.3,
-        #    0.5,
-        #    0.9,
+        #    0.1,
+        #    param,
+        #    param+0.1,
         #]) * TAU / (SUN_R[0]/SUN_R[1])
         #rs = np.array([
         #    1,
-        #    1.5,
-        #    param,
-        #    param,
-        #    1.5,
+        #    1.6,
+        #    1.1,
+        #    1,
         #])
-        thetas = np.array([
-            0,
-            0.1,
-            param,
-            param+0.1,
-        ]) * TAU / (SUN_R[0]/SUN_R[1])
-        rs = np.array([
-            1,
-            2,
-            1.5,
-            1,
-        ])
 
         sun = Gear(SUN_R, thetas, rs)
         return sun
 
-    #sun, planet, ring = Gear.get_planetary_from_sun(get_sun, (1, 10), (1, 10), PLANET_R, RING_R)
-    sun, planet, ring = Gear.get_planetary_from_sun(get_sun, (0.11, 0.89), (1, 10), PLANET_R, RING_R)
-    Assembly.mesh_planetary(sun, planet, ring, planet_skip=3)
+    sun, planet, ring = Gear.get_planetary_from_sun(get_sun, (1, 10), (1, 10), PLANET_R, RING_R)
+    #sun, planet, ring = Gear.get_planetary_from_sun(get_sun, (0.11, 0.89), (1, 10), PLANET_R, RING_R)
+    Assembly.mesh_planetary(sun, planet, ring, planet_skip=4)
 
     exit()
 
