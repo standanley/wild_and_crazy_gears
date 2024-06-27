@@ -191,7 +191,7 @@ class Gear:
 
     # I cache this because it gets called every frame of animation
     @lru_cache
-    def get_r_vs_theta(self, M):
+    def get_r_vs_theta(self, M, repeat_numerator=True):
         sample_thetas = np.zeros(0)
         sample_rs = np.zeros(0)
         for i in range(self.N):
@@ -214,8 +214,9 @@ class Gear:
             sample_thetas = np.concatenate((sample_thetas, section_ts))
             sample_rs = np.concatenate((sample_rs, section_rs))
 
-        sample_thetas = np.concatenate([sample_thetas+(TAU/self.repetitions*i) for i in range(self.repetitions_numerator)])
-        sample_rs = np.concatenate([sample_rs]*self.repetitions_numerator)
+        if repeat_numerator:
+            sample_thetas = np.concatenate([sample_thetas+(TAU/self.repetitions*i) for i in range(self.repetitions_numerator)])
+            sample_rs = np.concatenate([sample_rs]*self.repetitions_numerator)
 
         return sample_thetas, sample_rs
 

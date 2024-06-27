@@ -20,9 +20,9 @@ def test_simple():
     ]) * TAU / (g1_R[0]/g1_R[1])
     rs = np.array([
         1,
-        4,
+        5,
         3,
-        3,
+        2,
         1.2,
     ]) / 6.6025 * 2.5
     # thetas = np.array([
@@ -44,7 +44,7 @@ def test_simple():
 
     g1 = Gear(g1_R, thetas, rs, is_outer=False, mirror=False)
     #g1 = Gear3D(g1_R, thetas, rs, is_outer=False, mirror=False)
-    g2 = g1.get_partner(g2_R, partner_outer=True)
+    g2 = g1.get_partner(g2_R, partner_outer=False)
     print('finished creating gears')
 
     # g1.plot()
@@ -53,9 +53,9 @@ def test_simple():
 
     assembly = Assembly.mesh(g1, g2)
     #assembly = Assembly3D.mesh(g1, g2)
-    assembly.animate()
+    #assembly.animate()
 
-    exit()
+    return assembly
 
 
 def test_planetary():
@@ -98,14 +98,17 @@ def test_planetary():
 
     sun, planet, ring = Gear.get_planetary_from_sun(get_sun, (1, 10), (1, 10), PLANET_R, RING_R)
     #sun, planet, ring = Gear.get_planetary_from_sun(get_sun, (0.11, 0.89), (1, 10), PLANET_R, RING_R)
-    Assembly.mesh_planetary(sun, planet, ring, planet_skip=4)
+    Assembly.mesh_planetary(sun, planet, ring, planet_skip=5)
 
     exit()
 
 if __name__ == '__main__':
 
-    #test_simple()
+    assembly = test_simple()
+    assembly.animate()
+    exit()
     test_planetary()
+    exit()
 
     SUN_R = 2
     PLANET_R = 1

@@ -56,6 +56,7 @@ class Interp:
         ys_fake = self.fun(xs_fake)
         plt.plot(xs_fake, ys_fake, '*')
         plt.plot(self.xs_interp, self.ys_interp, '+')
+        plt.grid()
         plt.show()
 
     @classmethod

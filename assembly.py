@@ -185,10 +185,14 @@ class Assembly:
         sr_sum_denominator = sun.repetitions_denominator * ring.repetitions_denominator
         sr_sum_gcd = np.gcd(sr_sum_numerator, sr_sum_denominator)
         num_planets = sr_sum_numerator // sr_sum_gcd
+        # TODO there might be a better way to get this
+        wrap_amount = round((spr.angles[2][-1] - spr.angles[2][0])/TAU)
         for i in range(planet_skip, num_planets, planet_skip):
+        #for i in range(1, 10, 1):
             print('planet instantiation', i, num_planets, planet_skip)
             # TODO I'm not 100% sure the next line is correct
-            offset = (len(spr2.ts)*i)//(num_planets * sun.repetitions_numerator // sun.repetitions_denominator)
+            #offset = (len(spr2.ts)*i)//(num_planets * sun.repetitions_numerator // sun.repetitions_denominator)
+            offset = (len(spr2.ts)*i)//(num_planets * wrap_amount)
             print(offset)
             spr2.gears.append(planet)
             spr2.angles.append(np.roll(spr2.angles[1], offset))
