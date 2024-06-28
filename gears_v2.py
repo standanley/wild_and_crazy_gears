@@ -10,7 +10,7 @@ TAU = np.pi*2
 
 def test_simple():
     g1_R = (1, 2)
-    g2_R = (5, 3)
+    g2_R = (3, 1)
     thetas = np.array([
         0.0,
         0.4,

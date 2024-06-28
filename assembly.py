@@ -24,7 +24,7 @@ class Assembly:
     @classmethod
     def mesh(cls, g1, g2, debug=False):
         assert g1.N == g2.N
-        M = 4*5*7
+        M = 4*5*7*2
         ts = np.linspace(0, 1, M, endpoint=False)
         angles1 = ts * TAU / g1.repetitions
 

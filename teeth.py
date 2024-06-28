@@ -27,7 +27,7 @@ class ToothProfile:
     # what do we actually need from gA and gB?
     # Given a distance along the edge, we need the rotation and pre-tooth radius. We might also need the pre-tooth
     # edge tangent direction if we choose to use that for the coordinate system. I won't for now.
-    def cut_teeth(self, gA, gB, N, size):
+    def cut_teeth(self, gA, gB, N):
         # cuts N teeth around gA and gB
         # TODO if ratio is not 1 to 1
 
@@ -72,13 +72,15 @@ class ToothProfile:
         for gear, profile in [gA, profile_a], [gB, profile_b]:
             dist_fractions, offsets = profile
             theta_vs_dist, r_vs_dist = get_interps(gear)
-            dists = dist_fractions / N * theta_vs_dist.period_x
+            # when we scale dist_fractions into dists, we should scale the offsets too
+            tooth_scale = theta_vs_dist.period_x / N
+            dists = dist_fractions * tooth_scale
             thetas = theta_vs_dist(dists)
             rs = r_vs_dist(dists)
 
             flip = -1 if gear.mirror else 1
-            xs = rs + offsets[0]*size*flip
-            ys = offsets[1]*size
+            xs = rs + offsets[0]*tooth_scale*flip
+            ys = offsets[1]*tooth_scale
 
             new_thetas = thetas + np.arctan2(ys, xs)
             new_rs = np.sqrt(xs**2 + ys**2)
@@ -104,10 +106,10 @@ class ToothProfile:
 
 
 def profile1(x):
-    offset = [np.sin(x*TAU), 0]
+    offset = [np.sin(x*TAU)/TAU, 0]
     return (x, offset), (x, offset)
 
 sine_profile = ToothProfile(profile1)
 
 assembly = gears_v2.test_simple()
-sine_profile.cut_teeth(*assembly.gears, 20, 0.1)
+sine_profile.cut_teeth(*assembly.gears, 9)
