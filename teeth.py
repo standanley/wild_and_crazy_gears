@@ -20,14 +20,15 @@ class ToothProfile:
     # (perpendicular gear edge, tangent to gear edge)
     # When we then find p in the new space, I'm not sure whether we should use tangent to the new gear edge
     # or perpendicular to the line between centers (they are the same for circular gears)
-
-    def __init__(self, fun):
-        self.fun = fun #np.vectorize(fun, signature='(n)->((n),(n)),((n),(n))')
+    @classmethod
+    def fun(cls, x):
+        assert False, 'subclass and override this method'
 
     # what do we actually need from gA and gB?
     # Given a distance along the edge, we need the rotation and pre-tooth radius. We might also need the pre-tooth
     # edge tangent direction if we choose to use that for the coordinate system. I won't for now.
-    def cut_teeth(self, gA, gB, N):
+    @classmethod
+    def cut_teeth(cls, gA, gB, N):
         # cuts N teeth around gA and gB
         # TODO if ratio is not 1 to 1
 
@@ -66,7 +67,7 @@ class ToothProfile:
 
         tooth_N = 24
         ts = np.linspace(0, N, N*tooth_N, endpoint=False)
-        profile_a, profile_b = self.fun(ts)
+        profile_a, profile_b = cls.fun(ts)
 
         results = []
         for gear, profile in [gA, profile_a], [gB, profile_b]:
@@ -105,11 +106,12 @@ class ToothProfile:
         pass
 
 
-def profile1(x):
-    offset = [np.sin(x*TAU)/TAU, 0]
-    return (x, offset), (x, offset)
+class SineProfile(ToothProfile):
+    @classmethod
+    def fun(cls, x):
+        offset = [np.sin(x*TAU)/TAU, 0]
+        return (x, offset), (x, offset)
 
-sine_profile = ToothProfile(profile1)
 
 assembly = gears_v2.test_simple()
-sine_profile.cut_teeth(*assembly.gears, 9)
+SineProfile.cut_teeth(*assembly.gears, 9)
