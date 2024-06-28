@@ -9,8 +9,8 @@ from assembly import Assembly
 TAU = np.pi*2
 
 def test_simple():
-    g1_R = (1, 2)
-    g2_R = (3, 1)
+    g1_R = (1, 1)
+    g2_R = (2, 1)
     thetas = np.array([
         0.0,
         0.4,
@@ -19,12 +19,15 @@ def test_simple():
         0.9,
     ]) * TAU / (g1_R[0]/g1_R[1])
     rs = np.array([
-        1,
-        5,
-        3,
         2,
-        1.2,
+        2,
+        3,
+        3,
+        1.5,
     ]) / 6.6025 * 2.5
+    #rs = np.array([
+    #    2, 2, 2, 2, 2,
+    #])
     # thetas = np.array([
     #    0.0,
     #    0.0,

@@ -24,7 +24,7 @@ class Assembly:
     @classmethod
     def mesh(cls, g1, g2, debug=False):
         assert g1.N == g2.N
-        M = 4*5*7*2
+        M = 4*5*7*2 * 4
         ts = np.linspace(0, 1, M, endpoint=False)
         angles1 = ts * TAU / g1.repetitions
 
@@ -229,7 +229,7 @@ class Assembly:
     def get_fig_ax(self):
         fig = plt.figure()
         ax = fig.add_subplot()
-        SIZE = 6
+        SIZE = 3
         ax.set_xlim([-SIZE, SIZE])
         ax.set_ylim([-SIZE, SIZE])
         ax.set_aspect('equal')
