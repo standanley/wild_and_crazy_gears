@@ -54,7 +54,7 @@ class ToothProfile:
     # Given a distance along the edge, we need the rotation and pre-tooth radius. We might also need the pre-tooth
     # edge tangent direction if we choose to use that for the coordinate system. I won't for now.
     @classmethod
-    def cut_teeth(cls, gA, gB, N):
+    def cut_teeth(cls, gA, gB, N, tooth_offset=0):
         # cuts N teeth around gA and gB
         # TODO if ratio is not 1 to 1
 
@@ -88,7 +88,11 @@ class ToothProfile:
             r_vs_dist = Interp(dists, rs, dist)
             #r_vs_dist.visualize()
 
-            return theta_vs_dist, r_vs_dist
+            drs_ddists = np.diff(rs, append=rs[0]) / np.diff(dists, append=dist)
+            drs_vs_dist = Interp(dists, drs_ddists, dist)
+
+
+            return theta_vs_dist, r_vs_dist, drs_vs_dist
 
 
         tooth_N = 100
@@ -96,18 +100,23 @@ class ToothProfile:
         profile_a, profile_b = cls.fun(ts)
 
         results = []
-        for gear, profile in [gA, profile_a], [gB, profile_b]:
+        for gear, profile, tilt_flip in [gA, profile_a, -1], [gB, profile_b, 1]:
             dist_fractions, offsets_x, offsets_y = profile
-            theta_vs_dist, r_vs_dist = get_interps(gear)
+            dist_fractions += tooth_offset
+            theta_vs_dist, r_vs_dist, drs_vs_dist = get_interps(gear)
             # when we scale dist_fractions into dists, we should scale the offsets too
             tooth_scale = theta_vs_dist.period_x / N
             dists = dist_fractions * tooth_scale
             thetas = theta_vs_dist(dists)
             rs = r_vs_dist(dists)
 
+            tilt_angle = tilt_flip * np.arctan(drs_vs_dist(dists))
+            offsets_x_tilted = np.cos(tilt_angle) * offsets_x - np.sin(tilt_angle) * offsets_y
+            offsets_y_tilted = np.sin(tilt_angle) * offsets_x + np.cos(tilt_angle) * offsets_y
+
             flip = -1 if gear.mirror else 1
-            xs = rs + offsets_x*tooth_scale*flip
-            ys = offsets_y*tooth_scale
+            xs = rs + offsets_x_tilted*tooth_scale*flip
+            ys = offsets_y_tilted*tooth_scale
 
             new_thetas = thetas + np.arctan2(ys, xs)
             new_rs = np.sqrt(xs**2 + ys**2)
@@ -142,7 +151,7 @@ class SineProfile(ToothProfile):
         return (x, offset_x, offset_y), (x, offset_x, offset_y)
 
 class InvoluteProfile(ToothProfile):
-    pressure_angle_degrees = 30
+    pressure_angle_degrees = 25
 
     @classmethod
     def fun_internal(cls, x):
@@ -152,6 +161,7 @@ class InvoluteProfile(ToothProfile):
         # A: x=(0,.25), d=(0,
 
         # Imagine the line of action as a diagonal from (-loa_x, loa_y) to (loa_x, -loa_y)
+        #loa_y = 0.45
         loa_y = 0.45
         loa_x = -1*np.sin(pressure_angle) * loa_y
 
@@ -167,7 +177,7 @@ class InvoluteProfile(ToothProfile):
         # oooh interesting
         speed_d = loa_y/np.cos(pressure_angle)**2
 
-        cap_offset = 0.5
+        cap_offset = 0.1
 
         # we know the tangent speed of the gear should equal y speed of the dot at (0,0)
         # so the dy/dt of the dot equals dx/dt of the gear
@@ -214,4 +224,4 @@ class InvoluteProfile(ToothProfile):
 
 assembly = gears_v2.test_simple()
 #SineProfile.cut_teeth(*assembly.gears, 4)
-InvoluteProfile.cut_teeth(*assembly.gears, 16)
+InvoluteProfile.cut_teeth(*assembly.gears, 10, -0.10)
