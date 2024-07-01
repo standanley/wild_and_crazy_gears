@@ -67,7 +67,7 @@ class ToothCutter:
         for dist_center in tooth_face_center_dists:
             dist_start, dist_end = dist_center + tooth_face_length/2, dist_center - tooth_face_length/2
 
-            n_steps = 320
+            n_steps = 32
             dist_step_size = tooth_face_length / n_steps
 
             def cut_half_surface(flip):
@@ -87,7 +87,9 @@ class ToothCutter:
                     # and other things are proportional to that
                     gear_speed = laser_r / contact_r * flip
                     if i == 0:
-                        laser_direction = self.pressure_angle
+                        # I believe chanign this by 180 degrees does nothing, because the speed will be chosen
+                        # with the right magnitude to make it go the correct way
+                        laser_direction = -TAU/4 + self.pressure_angle
                     else:
                         # laser direction is defined to be away from the toothless contact point
                         laser_direction = np.arctan2(laser_y, laser_x - contact_r)
@@ -101,15 +103,16 @@ class ToothCutter:
                     laser_x += laser_vx * dist_step_size * flip
                     laser_y += laser_vy * dist_step_size * flip
 
+                    current_dist += dist_step_size * flip
                     backwards_cut.append((current_dist, laser_x, laser_y))
 
-                    current_dist += dist_step_size * flip
                 return backwards_cut
 
             #backwards_cut = cut_half_surface(1)[::-1] + cut_half_surface(-1)
-            backwards_cut = cut_half_surface(1)
-            backwards_cut += cut_half_surface(-1)
+            backwards_cut = []
             backwards_cut += [(dist_center, r_vs_dist(dist_center), 0)]
+            backwards_cut += cut_half_surface(1)
+            backwards_cut += cut_half_surface(-1)
 
             #tooth_faces.append(np.array(backwards_cut))
             cut_info = np.array(backwards_cut)
