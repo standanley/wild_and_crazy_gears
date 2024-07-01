@@ -138,7 +138,7 @@ class ToothProfile:
             #plt.show()
 
         old_assembly = Assembly.mesh(gA, gB)
-        new_assembly = Assembly(old_assembly.ts, results, old_assembly.angles, old_assembly.centers)
+        new_assembly = assembly(old_assembly.ts, results, old_assembly.angles, old_assembly.centers)
         new_assembly.animate()
         pass
 

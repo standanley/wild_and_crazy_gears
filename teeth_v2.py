@@ -64,13 +64,16 @@ class ToothCutter:
 
         tooth_faces = []
 
-        for dist_center in tooth_face_center_dists:
-            dist_start, dist_end = dist_center + tooth_face_length/2, dist_center - tooth_face_length/2
+        for bottom_dist_center in tooth_face_center_dists:
+            #dist_start, dist_end = dist_center + tooth_face_length/2, dist_center - tooth_face_length/2
+            top_dist_center = bottom_dist_center + total_dist/(self.teeth_per_repeat *2)
 
             n_steps = 32
             dist_step_size = tooth_face_length / n_steps
 
-            def cut_half_surface(flip):
+            def cut_half_surface(flip, flip2, dist_center):
+                # flip changes the direction the cut leaves from the center point
+                # flip2 changes which side of the tooth this cuts
                 backwards_cut = []
                 laser_x = r_vs_dist(dist_center)
                 laser_y = 0
@@ -89,9 +92,9 @@ class ToothCutter:
                     if i == 0:
                         # I believe chanign this by 180 degrees does nothing, because the speed will be chosen
                         # with the right magnitude to make it go the correct way
-                        laser_direction = -TAU/4 + self.pressure_angle
+                        laser_direction = -TAU/4 + self.pressure_angle*flip2
                     else:
-                        # laser direction is defined to be away from the toothless contact point
+                        # laser direction is chosen to be away from the toothless contact point
                         laser_direction = np.arctan2(laser_y, laser_x - contact_r)
 
                     # laser speed is chosen to match the component of gear velocity in the laser direction
@@ -110,12 +113,22 @@ class ToothCutter:
 
             #backwards_cut = cut_half_surface(1)[::-1] + cut_half_surface(-1)
             backwards_cut = []
-            backwards_cut += [(dist_center, r_vs_dist(dist_center), 0)]
-            backwards_cut += cut_half_surface(1)
-            backwards_cut += cut_half_surface(-1)
+            inverse_teeth = -1 if gear.mirror else 1
+
+            cut_a = cut_half_surface(1, inverse_teeth, bottom_dist_center)[::-1]
+            cut_b = [(bottom_dist_center, r_vs_dist(bottom_dist_center), 0)]
+            cut_c = cut_half_surface(-1, inverse_teeth, bottom_dist_center)
+            cut_d = cut_half_surface(1, -1*inverse_teeth, top_dist_center)[::-1]
+            cut_e = [(top_dist_center, r_vs_dist(top_dist_center), 0)]
+            cut_f = cut_half_surface(-1, -1*inverse_teeth, top_dist_center)
+
+            if inverse_teeth == 1:
+                cut_info = cut_a + cut_b + cut_c + cut_d + cut_e + cut_f
+            else:
+                cut_info = cut_d + cut_e + cut_f + cut_a + cut_b + cut_c
 
             #tooth_faces.append(np.array(backwards_cut))
-            cut_info = np.array(backwards_cut)
+            cut_info = np.array(cut_info)
             thetas_orig = theta_vs_dist(cut_info[:, 0])
             #center_theta = theta_vs_dist(dist_center)
             thetas_new = thetas_orig + np.arctan2(cut_info[:, 2], cut_info[:, 1])
@@ -137,16 +150,21 @@ class ToothCutter:
                 mirror=gear.mirror,
                 ignore_checks=True)
 
-        test_g.plot()
-        plt.grid()
-        plt.show()
+        #test_g.plot()
+        #plt.grid()
+        #plt.show()
+        return test_g
 
-tooth_cutter = ToothCutter(8, 20)
+tooth_cutter = ToothCutter(8, 20, overlap=0.1)
 
-assembly = gears_v2.test_simple()
+old_assembly = gears_v2.test_simple()
 #assembly.animate()
 
-g0 = assembly.gears[0]
-tooth_cutter.cut(g0)
+g0 = old_assembly.gears[0]
+g1 = old_assembly.gears[1]
+g0_teeth = tooth_cutter.cut(g0)
+g1_teeth = tooth_cutter.cut(g1)
 
+new_assembly = Assembly(old_assembly.ts, [g0_teeth, g1_teeth], old_assembly.angles, old_assembly.centers)
 
+new_assembly.animate()
