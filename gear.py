@@ -247,7 +247,7 @@ class Gear:
         xs, ys, xs_fine, ys_fine = self.get_plot_coords([0, 0], 0)
 
         fine, = ax.plot(xs_fine, ys_fine, '-')
-        #coarse, = ax.plot(xs, ys, '*')
+        coarse, = ax.plot(xs, ys, '*')
         coarse, = ax.plot([], [], '*')
         point, = ax.plot([0], [0], '+')
         return [fine, coarse, point]

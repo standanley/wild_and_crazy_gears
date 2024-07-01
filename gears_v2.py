@@ -17,7 +17,7 @@ def test_simple():
     ]) * TAU / (g1_R[0]/g1_R[1])
     rs = np.array([
         2,
-        4,
+        2,
     ]) / 6.6025 * 2.5
     #rs = np.array([
     #    2, 2, 2, 2, 2,
