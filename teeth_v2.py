@@ -73,7 +73,7 @@ class ToothCutter:
             #dist_start, dist_end = dist_center + tooth_face_length/2, dist_center - tooth_face_length/2
             top_dist_center = bottom_dist_center + total_dist/(self.teeth_per_repeat *2)
 
-            n_steps = 320
+            n_steps = 32
             dist_step_size = tooth_face_length / n_steps
 
             def cut_half_surface(flip, flip2, dist_center):
@@ -176,7 +176,7 @@ class ToothCutter:
             surface_a = pad(surface_a)
             surface_d = pad(surface_d)
 
-            if inverse_teeth == 1:
+            if inverse_teeth == -1:
                 cut_info = surface_a + surface_d
             else:
                 cut_info = surface_d + surface_a
@@ -202,8 +202,10 @@ class ToothCutter:
         all_thetas = []
         all_rs = []
         for thetas_new, rs_new in tooth_faces:
-            all_thetas += [thetas_new[0]] + list(thetas_new) + [thetas_new[-1]]
-            all_rs += [0.1] + list(rs_new) + [0.1]
+            #all_thetas += [thetas_new[0]] + list(thetas_new) + [thetas_new[-1]]
+            #all_rs += [0.1] + list(rs_new) + [0.1]
+            all_thetas += list(thetas_new)
+            all_rs += list(rs_new)
 
         test_g = Gear((gear.repetitions_numerator, gear.repetitions_denominator),
                 np.array(all_thetas),
@@ -219,7 +221,7 @@ class ToothCutter:
         return test_g
 
 
-tooth_cutter = ToothCutter(12, 25, overlap=2.0, offset=0)
+tooth_cutter = ToothCutter(24, 25, overlap=0.2, offset=0)
 
 old_assembly = gears_v2.test_simple()
 #assembly.animate()

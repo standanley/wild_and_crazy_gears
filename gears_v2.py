@@ -13,13 +13,11 @@ def test_simple():
     g2_R = (2, 1)
     thetas = np.array([
         0.0,
-        0.5,
-        0.5
+        0.9
     ]) * TAU / (g1_R[0]/g1_R[1])
     rs = np.array([
-        3,
-        4,
         2,
+        4,
     ]) / 6.6025 * 2.5
     #rs = np.array([
     #    2, 2, 2, 2, 2,
