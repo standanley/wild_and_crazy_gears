@@ -60,6 +60,9 @@ class ToothCutter:
         r_vs_dist = Interp(dists, rs, total_dist)
         theta_vs_dist = Interp(dists, thetas, total_dist, TAU/gear.repetitions)
 
+        coverage_data_dist = []
+        coverage_data_theta = []
+
         tooth_face_center_dists = np.linspace(0, total_dist, self.teeth_per_repeat, endpoint=False)
         tooth_face_center_dists += self.offset
         tooth_face_length = total_dist/self.teeth_per_repeat * (1+self.overlap)
@@ -156,9 +159,9 @@ class ToothCutter:
             cut_a = cut_half_surface(1, inverse_teeth, bottom_dist_center)[::-1]
             cut_b = [(bottom_dist_center, r_vs_dist(bottom_dist_center), 0)]
             cut_c = cut_half_surface(-1, inverse_teeth, bottom_dist_center)
-            cut_d = [] #cut_half_surface(1, -1*inverse_teeth, top_dist_center)[::-1]
+            cut_d = cut_half_surface(1, -1*inverse_teeth, top_dist_center)[::-1]
             cut_e = [(top_dist_center, r_vs_dist(top_dist_center), 0)]
-            cut_f = [] #cut_half_surface(-1, -1*inverse_teeth, top_dist_center)
+            cut_f = cut_half_surface(-1, -1*inverse_teeth, top_dist_center)
 
             surface_a = cut_a + cut_b + cut_c
             surface_d = cut_d + cut_e + cut_f
@@ -174,9 +177,9 @@ class ToothCutter:
             surface_d = pad(surface_d)
 
             if inverse_teeth == 1:
-                cut_info = surface_a #+ surface_d
+                cut_info = surface_a + surface_d
             else:
-                cut_info = surface_a #surface_d + surface_a
+                cut_info = surface_d + surface_a
 
             #tooth_faces.append(np.array(backwards_cut))
             cut_info = np.array(cut_info)
@@ -185,8 +188,16 @@ class ToothCutter:
             thetas_new = thetas_orig + np.arctan2(cut_info[:, 2], cut_info[:, 1])
             rs_new = np.sqrt(cut_info[:, 1]**2 + cut_info[:, 2]**2)
 
+
+            coverage_data_dist += list(cut_info[:, 0])
+            coverage_data_theta += list(thetas_new)
+
             tooth_faces.append((thetas_new, rs_new))
 
+
+        plt.plot(coverage_data_dist, coverage_data_theta, 'x')
+        plt.grid()
+        plt.show()
 
         all_thetas = []
         all_rs = []
@@ -201,7 +212,7 @@ class ToothCutter:
                 mirror=gear.mirror,
                 ignore_checks=True)
 
-        if True:
+        if False:
             test_g.plot()
             plt.grid()
             plt.show()
