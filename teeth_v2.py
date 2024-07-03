@@ -11,11 +11,12 @@ TAU = np.pi*2
 
 class ToothCutter:
 
-    def __init__(self, teeth_per_repeat, pressure_angle_degrees, overlap=0.1):
+    def __init__(self, teeth_per_repeat, pressure_angle_degrees, overlap=0.1, offset=0.0):
         # overlap is the fraction of time (per unit distance) with 3 surfaces touching
         self.teeth_per_repeat = teeth_per_repeat
         self.pressure_angle = pressure_angle_degrees * TAU / 360
         self.overlap = overlap
+        self.offset = offset
 
 
     def get_gear_info(self, g):
@@ -60,6 +61,7 @@ class ToothCutter:
         theta_vs_dist = Interp(dists, thetas, total_dist, TAU/gear.repetitions)
 
         tooth_face_center_dists = np.linspace(0, total_dist, self.teeth_per_repeat, endpoint=False)
+        tooth_face_center_dists += self.offset
         tooth_face_length = total_dist/self.teeth_per_repeat * (1+self.overlap)
 
         tooth_faces = []
@@ -68,7 +70,7 @@ class ToothCutter:
             #dist_start, dist_end = dist_center + tooth_face_length/2, dist_center - tooth_face_length/2
             top_dist_center = bottom_dist_center + total_dist/(self.teeth_per_repeat *2)
 
-            n_steps = 32
+            n_steps = 320
             dist_step_size = tooth_face_length / n_steps
 
             def cut_half_surface(flip, flip2, dist_center):
@@ -79,6 +81,11 @@ class ToothCutter:
                 laser_y = 0
 
                 # NOTE "theta" refers specifically to an angle measured relative to gear center, for polar form locations
+                laser_direction = None
+                laser_speed = None
+                laser_vx = None
+                laser_vy = None
+                max_difference = 0
                 current_dist = dist_center
                 for i in range(n_steps//2):
                     laser_theta = np.arctan2(laser_y, laser_x)
@@ -95,20 +102,51 @@ class ToothCutter:
                         laser_direction = -TAU/4 + self.pressure_angle*flip2
                     else:
                         # laser direction is chosen to be away from the toothless contact point
+                        prev_laser_direction = laser_direction
                         laser_direction = np.arctan2(laser_y, laser_x - contact_r)
 
                     # laser speed is chosen to match the component of gear velocity in the laser direction
+                    prev_laser_speed = laser_speed
                     laser_speed = gear_speed * np.cos(laser_direction - gear_direction) * flip
 
+                    difference = abs((laser_direction - (gear_direction + (0 if laser_speed > 0 else TAU/2)) + TAU/2) % TAU - TAU / 2)
+                    if difference < 1e-2:
+                        print('exiting early 2!', i)
+                        break
+
+                    if i != 0:
+                        dir_prev = prev_laser_direction + (0 if prev_laser_speed > 0 else TAU/2)
+                        dir_current = laser_direction + (0 if laser_speed > 0 else TAU/2)
+                        difference = abs((dir_prev - dir_current + TAU/2)%TAU - TAU/2)
+                        max_difference = max(difference, max_difference)
+                        #print('checking')
+                        # flag any turns more than 90 degrees
+                        if difference > TAU/4:
+                            print('exiting early!', i)
+                            break
+
+
+                    laser_vx_prev = laser_vx
+                    laser_vy_prev = laser_vy
                     laser_vx = laser_speed * np.cos(laser_direction)
                     laser_vy = laser_speed * np.sin(laser_direction)
+                    if i != 0 and laser_vx_prev * laser_vx < 0:
+                        print('HEY!', prev_laser_direction, prev_laser_speed, dir_prev, laser_direction, laser_speed, dir_current)
 
                     laser_x += laser_vx * dist_step_size * flip
                     laser_y += laser_vy * dist_step_size * flip
 
+
+                    if i == 0 or i == 1:
+                        print('starting move', i)
+                        print(laser_x, laser_y)
+                        print(laser_direction, laser_speed)
+                        print(flip, flip2)
+
                     current_dist += dist_step_size * flip
                     backwards_cut.append((current_dist, laser_x, laser_y))
 
+                print('max', max_difference)
                 return backwards_cut
 
             #backwards_cut = cut_half_surface(1)[::-1] + cut_half_surface(-1)
@@ -118,14 +156,27 @@ class ToothCutter:
             cut_a = cut_half_surface(1, inverse_teeth, bottom_dist_center)[::-1]
             cut_b = [(bottom_dist_center, r_vs_dist(bottom_dist_center), 0)]
             cut_c = cut_half_surface(-1, inverse_teeth, bottom_dist_center)
-            cut_d = cut_half_surface(1, -1*inverse_teeth, top_dist_center)[::-1]
+            cut_d = [] #cut_half_surface(1, -1*inverse_teeth, top_dist_center)[::-1]
             cut_e = [(top_dist_center, r_vs_dist(top_dist_center), 0)]
-            cut_f = cut_half_surface(-1, -1*inverse_teeth, top_dist_center)
+            cut_f = [] #cut_half_surface(-1, -1*inverse_teeth, top_dist_center)
+
+            surface_a = cut_a + cut_b + cut_c
+            surface_d = cut_d + cut_e + cut_f
+
+            def pad(surface):
+                ans = []
+                ans += [(surface[0][0], 0.1, 0)]
+                ans += surface
+                ans += [(surface[-1][0], 0.1, 0)]
+                return ans
+
+            surface_a = pad(surface_a)
+            surface_d = pad(surface_d)
 
             if inverse_teeth == 1:
-                cut_info = cut_a + cut_b + cut_c + cut_d + cut_e + cut_f
+                cut_info = surface_a #+ surface_d
             else:
-                cut_info = cut_d + cut_e + cut_f + cut_a + cut_b + cut_c
+                cut_info = surface_a #surface_d + surface_a
 
             #tooth_faces.append(np.array(backwards_cut))
             cut_info = np.array(cut_info)
@@ -150,12 +201,14 @@ class ToothCutter:
                 mirror=gear.mirror,
                 ignore_checks=True)
 
-        #test_g.plot()
-        #plt.grid()
-        #plt.show()
+        if True:
+            test_g.plot()
+            plt.grid()
+            plt.show()
         return test_g
 
-tooth_cutter = ToothCutter(8, 20, overlap=0.1)
+
+tooth_cutter = ToothCutter(12, 25, overlap=2.0, offset=0)
 
 old_assembly = gears_v2.test_simple()
 #assembly.animate()
