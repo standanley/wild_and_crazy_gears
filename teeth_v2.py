@@ -139,6 +139,13 @@ class ToothCutter:
                     laser_x += laser_vx * dist_step_size * flip
                     laser_y += laser_vy * dist_step_size * flip
 
+                    laser_speed_perp = laser_speed * 0.5
+                    laser_direction_perp = laser_direction + TAU/4 * flip2
+                    laser_vx_perp = laser_speed_perp * np.cos(laser_direction_perp)
+                    laser_vy_perp = laser_speed_perp * np.sin(laser_direction_perp)
+                    laser_x += laser_vx_perp * dist_step_size * flip
+                    laser_y += laser_vy_perp * dist_step_size * flip
+
 
                     if i == 0 or i == 1:
                         print('starting move', i)
@@ -221,7 +228,7 @@ class ToothCutter:
         return test_g
 
 
-tooth_cutter = ToothCutter(24, 25, overlap=0.2, offset=0)
+tooth_cutter = ToothCutter(24, 25, overlap=0.0, offset=0)
 
 old_assembly = gears_v2.test_simple()
 #assembly.animate()
