@@ -73,7 +73,7 @@ class ToothCutter:
             #dist_start, dist_end = dist_center + tooth_face_length/2, dist_center - tooth_face_length/2
             top_dist_center = bottom_dist_center + total_dist/(self.teeth_per_repeat *2)
 
-            n_steps = 32
+            n_steps = 32*4
             dist_step_size = tooth_face_length / n_steps
 
             def cut_half_surface(flip, flip2, dist_center):
@@ -83,13 +83,19 @@ class ToothCutter:
                 laser_x = r_vs_dist(dist_center)
                 laser_y = 0
 
+                # I think we are assuming the contact point is directly right of gear center, so we need to rotate PA
+                pressure_angle_vx = np.cos(flip2*self.pressure_angle+np.pi/2)
+                pressure_angle_vy = np.sin(flip2*self.pressure_angle+np.pi/2)
+
                 # NOTE "theta" refers specifically to an angle measured relative to gear center, for polar form locations
-                laser_direction = None
-                laser_speed = None
-                laser_vx = None
-                laser_vy = None
-                max_difference = 0
+                #laser_direction = None
+                #laser_speed = None
+                #laser_vx = None
+                #laser_vy = None
+                #max_difference = 0
                 current_dist = dist_center
+                debug_xs = []
+                debug_ys = []
                 for i in range(n_steps//2):
                     laser_theta = np.arctan2(laser_y, laser_x)
                     laser_r = np.sqrt(laser_x**2 + laser_y**2)
@@ -99,6 +105,50 @@ class ToothCutter:
                     # I guess speed=1 is defined to be the gear speed at the toothless contact point,
                     # and other things are proportional to that
                     gear_speed = laser_r / contact_r * flip
+
+                    # required movement is just gear speed in gear direction
+                    # gear direction is directly away from the contact point (pitch point)
+                    if i == 0:
+                        required_direction = -TAU/4 + self.pressure_angle*flip2
+                    else:
+                        required_direction = np.arctan2(laser_y, laser_x - contact_r)
+                    # the speed must match the component of the gear's speed in this direction
+                    required_speed = gear_speed * np.cos(required_direction - gear_direction) * flip
+                    required_dx = required_speed * dist_step_size * np.cos(required_direction)
+                    required_dy = required_speed * dist_step_size * np.sin(required_direction)
+                    laser_x += required_dx * flip
+                    laser_y += required_dy * flip
+                    debug_xs.append(laser_x)
+                    debug_ys.append(laser_y)
+
+                    # now we can move any amount in the perpendicular direction
+                    perp_direction = required_direction + np.pi/2
+                    perp_vx = np.cos(perp_direction)
+                    perp_vy = np.sin(perp_direction)
+
+                    # we want contact + u*pressure_angle = laser + v*perp_direction
+                    # (laser - contact) = [pressure_angle, perp_direction]
+                    # u, v = inv([pressure_angle, -perp_direction]) * (laser - contact)
+                    contact_x = contact_r
+                    contact_y = 0
+                    M = np.array([[pressure_angle_vx, -perp_vx], [pressure_angle_vy, -perp_vy]])
+                    xy = np.array([laser_x - contact_x, laser_y - contact_y])
+                    u, v = np.linalg.inv(M) @ xy
+                    #u = 0
+                    #laser_x += u * pressure_angle_vx
+                    #laser_y += u * pressure_angle_vy
+                    #v = 0.0002 * flip2
+                    laser_x += v * perp_vx
+                    laser_y += v * perp_vy
+
+
+
+
+
+
+
+
+                    '''
                     if i == 0:
                         # I believe chanign this by 180 degrees does nothing, because the speed will be chosen
                         # with the right magnitude to make it go the correct way
@@ -139,6 +189,12 @@ class ToothCutter:
                     laser_x += laser_vx * dist_step_size * flip
                     laser_y += laser_vy * dist_step_size * flip
 
+                    # the goal is to add perp movement such that the angle between the laser and pitch point is
+                    # the desired pressure angle
+                    # pp + a*u = ll + b*v
+                    # b is the unknown we care about, a is an unknown we don't care about
+                    # I think we make a vector a,b and then it's matrix algebra?
+                    # 
                     laser_speed_perp = laser_speed * 0.5
                     laser_direction_perp = laser_direction + TAU/4 * flip2
                     laser_vx_perp = laser_speed_perp * np.cos(laser_direction_perp)
@@ -153,10 +209,21 @@ class ToothCutter:
                         print(laser_direction, laser_speed)
                         print(flip, flip2)
 
+                    '''
                     current_dist += dist_step_size * flip
                     backwards_cut.append((current_dist, laser_x, laser_y))
+                    if laser_x > 100:
+                        break
 
-                print('max', max_difference)
+                if False:
+                    print('quick laser plot')
+                    plt.plot([bc[1] for bc in backwards_cut], [bc[2] for bc in backwards_cut], 'x')
+                    plt.plot(debug_xs, debug_ys, 'o')
+                    plt.grid()
+                    plt.gca().set_aspect('equal')
+                    plt.show()
+
+                #print('max', max_difference)
                 return backwards_cut
 
             #backwards_cut = cut_half_surface(1)[::-1] + cut_half_surface(-1)
@@ -228,7 +295,7 @@ class ToothCutter:
         return test_g
 
 
-tooth_cutter = ToothCutter(24, 25, overlap=0.0, offset=0)
+tooth_cutter = ToothCutter(24, 25, overlap=0.6, offset=0)
 
 old_assembly = gears_v2.test_simple()
 #assembly.animate()
