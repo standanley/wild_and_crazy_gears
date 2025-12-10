@@ -235,7 +235,7 @@ class Assembly:
         ax.set_aspect('equal')
         return fig, ax
 
-    def animate(self):
+    def animate(self, frame_offset=0):
         fig, ax = self.get_fig_ax()
 
         curves_lists = []
@@ -246,8 +246,9 @@ class Assembly:
         def update(frame_num):
 
             all_curves = []
+            N = (frame_num + frame_offset) % len(self.centers[0])
             for g, g_curves, centers, angles in zip(self.gears, curves_lists, self.centers, self.angles):
-                all_curves += g.update_plot(centers[frame_num], angles[frame_num], g_curves)
+                all_curves += g.update_plot(centers[N], angles[N], g_curves)
             return all_curves
 
         # show just the first frame

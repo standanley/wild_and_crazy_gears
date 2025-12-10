@@ -8,12 +8,37 @@ from assembly import Assembly
 
 TAU = np.pi*2
 
+def test_circle():
+    g1_R = (1, 1)
+    g2_R = (2, 1)
+    thetas = np.array([
+        0.0,
+        0.1
+    ]) * TAU / (g1_R[0]/g1_R[1])
+    rs = np.array([
+        3,
+        3,
+    ]) / 6.6025 * 2.5
+
+    g1 = Gear(g1_R, thetas, rs, is_outer=False, mirror=False)
+    #g1 = Gear3D(g1_R, thetas, rs, is_outer=False, mirror=False)
+    g2 = g1.get_partner(g2_R, partner_outer=False)
+    print('finished creating gears')
+
+    # g1.plot()
+    # g2.plot()
+    # plt.show()
+
+    assembly = Assembly.mesh(g1, g2)
+    #assembly.animate()
+    return assembly
+
 def test_simple():
     g1_R = (1, 1)
     g2_R = (2, 1)
     thetas = np.array([
         0.0,
-        0.9
+        0.1
     ]) * TAU / (g1_R[0]/g1_R[1])
     rs = np.array([
         2,

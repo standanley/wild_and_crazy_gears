@@ -73,7 +73,8 @@ class ToothCutter:
             #dist_start, dist_end = dist_center + tooth_face_length/2, dist_center - tooth_face_length/2
             top_dist_center = bottom_dist_center + total_dist/(self.teeth_per_repeat *2)
 
-            n_steps = 32*4
+            step_multiplier = 2
+            n_steps = 32*step_multiplier
             dist_step_size = tooth_face_length / n_steps
 
             def cut_half_surface(flip, flip2, dist_center):
@@ -96,12 +97,16 @@ class ToothCutter:
                 current_dist = dist_center
                 debug_xs = []
                 debug_ys = []
+                debug_contact_xs = []
+                debug_contact_ys = []
                 for i in range(n_steps//2):
                     laser_theta = np.arctan2(laser_y, laser_x)
                     laser_r = np.sqrt(laser_x**2 + laser_y**2)
                     # gear direction/speed at the laser point
                     gear_direction = laser_theta - TAU/4
                     contact_r = r_vs_dist(current_dist)
+                    debug_contact_xs.append(contact_r)
+                    debug_contact_ys.append(0)
                     # I guess speed=1 is defined to be the gear speed at the toothless contact point,
                     # and other things are proportional to that
                     gear_speed = laser_r / contact_r * flip
@@ -129,7 +134,11 @@ class ToothCutter:
                     # we want contact + u*pressure_angle = laser + v*perp_direction
                     # (laser - contact) = [pressure_angle, perp_direction]
                     # u, v = inv([pressure_angle, -perp_direction]) * (laser - contact)
-                    contact_x = contact_r
+                    measure_pa_from_original_contact = False
+                    if measure_pa_from_original_contact:
+                        contact_x = r_vs_dist(dist_center)
+                    else:
+                        contact_x = contact_r
                     contact_y = 0
                     M = np.array([[pressure_angle_vx, -perp_vx], [pressure_angle_vy, -perp_vy]])
                     xy = np.array([laser_x - contact_x, laser_y - contact_y])
@@ -211,14 +220,14 @@ class ToothCutter:
 
                     '''
                     current_dist += dist_step_size * flip
-                    backwards_cut.append((current_dist, laser_x, laser_y))
-                    if laser_x > 100:
-                        break
+                    if (i+1) % step_multiplier == 0:
+                        backwards_cut.append((current_dist, laser_x, laser_y))
 
                 if False:
                     print('quick laser plot')
-                    plt.plot([bc[1] for bc in backwards_cut], [bc[2] for bc in backwards_cut], 'x')
-                    plt.plot(debug_xs, debug_ys, 'o')
+                    plt.plot(debug_contact_xs, debug_contact_ys, '+', label='contact')
+                    plt.plot([bc[1] for bc in backwards_cut], [bc[2] for bc in backwards_cut], 'x', label='laser before pa')
+                    plt.plot(debug_xs, debug_ys, 'o', label='laser')
                     plt.grid()
                     plt.gca().set_aspect('equal')
                     plt.show()
@@ -269,9 +278,10 @@ class ToothCutter:
             tooth_faces.append((thetas_new, rs_new))
 
 
-        plt.plot(coverage_data_dist, coverage_data_theta, 'x')
-        plt.grid()
-        plt.show()
+        if False:
+            plt.plot(coverage_data_dist, coverage_data_theta, 'x')
+            plt.grid()
+            plt.show()
 
         all_thetas = []
         all_rs = []
@@ -295,9 +305,10 @@ class ToothCutter:
         return test_g
 
 
-tooth_cutter = ToothCutter(24, 25, overlap=0.6, offset=0)
+tooth_cutter = ToothCutter(16, 20, overlap=0.3, offset=0)
 
-old_assembly = gears_v2.test_simple()
+#old_assembly = gears_v2.test_simple()
+old_assembly = gears_v2.test_circle()
 #assembly.animate()
 
 g0 = old_assembly.gears[0]
@@ -307,4 +318,4 @@ g1_teeth = tooth_cutter.cut(g1)
 
 new_assembly = Assembly(old_assembly.ts, [g0_teeth, g1_teeth], old_assembly.angles, old_assembly.centers)
 
-new_assembly.animate()
+new_assembly.animate(frame_offset=800)
