@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+from functools import partial
 
 import gears_v2
 from assembly import Assembly
@@ -231,6 +233,51 @@ class ToothCutter:
                     plt.grid()
                     plt.gca().set_aspect('equal')
                     plt.show()
+
+                if True:
+                    # animate laser cut
+                    fig = plt.figure()
+                    ax = fig.add_subplot()
+                    SIZE = 3
+                    ax.set_xlim([-SIZE, SIZE])
+                    ax.set_ylim([-SIZE, SIZE])
+                    ax.set_aspect('equal')
+
+                    curve_lists = []
+                    for i in range(3):
+                        g_curve = ax.plot([], [])
+                        curve_lists += g_curve
+
+                    frame_offset = 0
+                    def update(frame_num):
+
+                        all_curves = []
+                        N = (frame_num + frame_offset) % len(backwards_cut)
+
+                        laser_curve = curve_lists[0]
+                        backwards_cut_partial = backwards_cut[:N]
+                        xs = [txy[1] for txy in backwards_cut_partial]
+                        ys = [txy[2] for txy in backwards_cut_partial]
+                        laser_curve.set_data(xs, ys)
+
+                        a_curve_x = []
+                        a_curve_y = []
+                        for i in range(N):
+                            # this is difficult because we need to work from dist back to theta for both gears
+                            print(i)
+
+                        return all_curves
+
+                    # show just the first frame
+                    # update(0)
+                    # plt.show()
+
+                    # update = self.set_up_animation(ax)
+                    ani = FuncAnimation(fig, partial(update), frames=range(len(backwards_cut)),
+                                        blit=True, interval=30)
+                    plt.show()
+
+                    pass
 
                 #print('max', max_difference)
                 return backwards_cut

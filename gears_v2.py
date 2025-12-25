@@ -8,6 +8,8 @@ from assembly import Assembly
 
 TAU = np.pi*2
 
+visualization = []
+
 def test_circle():
     g1_R = (1, 1)
     g2_R = (2, 1)
