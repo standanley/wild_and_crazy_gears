@@ -1,4 +1,6 @@
 import numpy as np
+#from scipy.optimize import minimize
+from scipy.optimize import root_scalar
 import matplotlib.pyplot as plt
 
 from assembly_3d import Assembly3D
@@ -126,10 +128,101 @@ def test_planetary():
 
     exit()
 
-if __name__ == '__main__':
+def rubiks():
+    # goal is to have two meshing gears where 1/3 turn on one maps to half turn on another,
+    # and the remaining 2/3 maps to the other half.
+    # eventually this will need to be a method that takes a param and returns the gear
 
-    assembly = test_simple()
+    bounds_simple = [1, 2]
+    def fun_simple(param):
+        thetas = np.array([
+            0,
+            0.1,
+            0.3,
+            0.4,
+            0.5,
+        ]) * TAU
+        #param = 1.7
+        rs = np.array([
+            1,
+            param,
+            param,
+            1,
+            1
+        ])
+        g1 = Gear(1, thetas, rs, is_outer=False, mirror=False)
+        #g1 = Gear3D(g1_R, thetas, rs, is_outer=False, mirror=False)
+        g2 = g1.get_partner(1, partner_outer=False)
+        assembly = Assembly.mesh(g1, g2)
+        return assembly
+
+    bounds = [0, 0.7]
+    N = 50
+    def fun(param):
+        thetas = np.linspace(0, TAU, N, endpoint=False)
+        rs = 1 + param * np.sin(thetas)
+
+        #x = cos(u)
+        #y = param + sin(u)
+        # atan(y/x) = theta, find u
+        # Wolfram Alpha says it's messy analytically
+        # I could move the theta points to make it easier but I need the ones at 0 and 0.5
+        # actually ... those specific points are easier? Just when y is zero
+        # u = asin(-param)
+        # r = x = sqrt(1-param^2)
+        # ok, we have our rs at our special points
+        # ... and I realized I had a mistake in my earlier attempt, let me fix that instead of
+        # trying this crazy thing
+        g1 = Gear(1, thetas, rs, is_outer=False, mirror=False)
+        g2 = g1.get_partner(1, partner_outer=False)
+        assembly = Assembly.mesh(g1, g2)
+        return assembly
+
+
+
+    # I was frustrated that I couldn't get the minimizer to work; turns out I had a bug in my fun
+    # So this might work but I think root_scalar is better for this 1d parameter anyway
+    #def fun_minimize(xs):
+    #    param = xs[0]
+    #    assembly = fun(param)
+    #    result = assembly.gears[1].thetas[4] / TAU
+    #    print('param, result', param, result)
+    #    error = (result - 2/3) **2
+    #    return error
+    #
+
+    #bounds = np.array([[1, 2]])
+    #opt = minimize(fun_minimize, np.average(bounds, axis=1), bounds=bounds, method='Nelder-Mead', tol=1e-7)
+
+    def fun_root(x):
+        assembly = fun(x)
+        assert N%2 == 0
+        result = assembly.gears[1].thetas[N//2] / TAU
+        error = result - 2/3
+        print('x, error', x, error)
+        return error
+
+    if False:
+        xs = np.linspace(*bounds, 20)
+        ys = [fun_root(x) for x in xs]
+        plt.plot(xs, ys, '+')
+        plt.show()
+
+        return fun(0.7)
+
+    opt = root_scalar(fun_root, bracket=bounds)
+
+    best_param = opt.root
+    assembly = fun(best_param)
+
+
+    return assembly
+
+if __name__ == '__main__':
+    assembly = rubiks()
     assembly.animate()
+    exit()
+    assembly = test_simple()
     exit()
     test_planetary()
     exit()

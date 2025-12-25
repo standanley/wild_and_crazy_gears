@@ -234,7 +234,7 @@ class ToothCutter:
                     plt.gca().set_aspect('equal')
                     plt.show()
 
-                if True:
+                if False:
                     # animate laser cut
                     fig = plt.figure()
                     ax = fig.add_subplot()
