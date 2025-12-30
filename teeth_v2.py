@@ -10,6 +10,11 @@ from gear import Gear
 
 TAU = np.pi*2
 
+def polar_to_cartesian(theta, r):
+    return r * np.cos(theta), r * np.sin(theta)
+
+def cartesian_to_polar(x, y):
+    return np.atan2(y, x), np.sqrt(x**2 + y**2)
 
 class ToothCutter:
 
@@ -325,15 +330,41 @@ class ToothCutter:
 
             if inverse_teeth == -1:
                 cutout_temp = cutout(surface_a, surface_d)
-                #cut_info = surface_a + ['root'] + surface_d
-                cut_info = surface_a + surface_d
+                cut_info = surface_a + ['root'] + surface_d
+                #cut_info = surface_a + surface_d
             else:
                 #cut_info = surface_d + surface_a
                 cutout_temp = cutout(surface_a, surface_d)
-                #cut_info = surface_a + surface_d + ['root']
-                cut_info = surface_a + surface_d
+                cut_info = surface_a + surface_d + ['root']
+                #cut_info = surface_a + surface_d
 
             tooth_faces += cut_info
+
+        # post-process roots and tips
+        N = len(tooth_faces)
+        tf = []
+        for i in range(N):
+            if tooth_faces[i] == 'root':
+                theta_eps = 1e-5
+                r_shrink = 0.93
+                theta0, x0, y0 = tooth_faces[(i-1)%N]
+                theta1, x1, y1 = tooth_faces[(i+1)%N]
+                if abs(theta1 - theta0) > TAU/2:
+                    # move theta1 to be near theta0
+                    if theta1 < theta0:
+                        theta1 += TAU
+                    else:
+                        theta1 -= TAU
+                dtheta0, r0 = cartesian_to_polar(x0, y0)
+                dtheta1, r1 = cartesian_to_polar(x1, y1)
+                root_tr = [(dtheta0 + theta_eps, r0 * r_shrink),
+                           (dtheta1 - theta_eps, r1 * r_shrink)]
+                root_xy = [polar_to_cartesian(*tr) for tr in root_tr]
+                root = [(theta0, *root_xy[0]), (theta1, *root_xy[1])]
+                tf += root
+            else:
+                tf.append(tooth_faces[i])
+        tooth_faces = tf
 
         # convert from theta,x,y to theta,r
         #tooth_faces.append(np.array(backwards_cut))
@@ -349,15 +380,6 @@ class ToothCutter:
 
         #tooth_faces.append((thetas_new, rs_new))
 
-        ## post-process tooth_faces
-        #N = len(tooth_faces)
-        #tf = []
-        #for i in range(N):
-        #    if tooth_faces[i] == 'root':
-        #        pass
-        #    else:
-        #        tf.append(tooth_faces[i])
-        #tooth_faces = tf
 
 
         if False:
