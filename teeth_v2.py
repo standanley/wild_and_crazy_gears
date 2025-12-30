@@ -296,6 +296,9 @@ class ToothCutter:
             surface_a = cut_a + cut_b + cut_c
             surface_d = cut_d + cut_e + cut_f
 
+            surface_a = surface_a[::-1]
+            surface_d = surface_d[::-1]
+
             def pad(surface):
                 ans = []
                 ans += [(surface[0][0], 0.1, 0)]
@@ -303,26 +306,58 @@ class ToothCutter:
                 ans += [(surface[-1][0], 0.1, 0)]
                 return ans
 
-            surface_a = pad(surface_a)
-            surface_d = pad(surface_d)
+            #surface_a = pad(surface_a)
+            #surface_d = pad(surface_d)
+
+            #def append_nan(surface):
+            #    nan = float('nan')
+            #    surface.append((surface[-1][0], nan, nan))
+
+            def cutout(surface0, surface1):
+                theta0, x0, y0 = surface0[-1]
+                theta1, x1, y1 = surface1[0]
+                ans = [
+                    (theta0, x0 * 0.9, y0),
+                    (theta1, x1 * 0.9, y1)
+                ]
+                return ans
+
 
             if inverse_teeth == -1:
+                cutout_temp = cutout(surface_a, surface_d)
+                #cut_info = surface_a + ['root'] + surface_d
                 cut_info = surface_a + surface_d
             else:
-                cut_info = surface_d + surface_a
+                #cut_info = surface_d + surface_a
+                cutout_temp = cutout(surface_a, surface_d)
+                #cut_info = surface_a + surface_d + ['root']
+                cut_info = surface_a + surface_d
 
-            #tooth_faces.append(np.array(backwards_cut))
-            cut_info = np.array(cut_info)
-            thetas_orig = theta_vs_dist(cut_info[:, 0])
-            #center_theta = theta_vs_dist(dist_center)
-            thetas_new = thetas_orig + np.arctan2(cut_info[:, 2], cut_info[:, 1])
-            rs_new = np.sqrt(cut_info[:, 1]**2 + cut_info[:, 2]**2)
+            tooth_faces += cut_info
 
+        # convert from theta,x,y to theta,r
+        #tooth_faces.append(np.array(backwards_cut))
+        tooth_faces = np.array(tooth_faces)
+        thetas_orig = theta_vs_dist(tooth_faces[:, 0])
+        #center_theta = theta_vs_dist(dist_center)
+        thetas_new = thetas_orig + np.arctan2(tooth_faces[:, 2], tooth_faces[:, 1])
+        rs_new = np.sqrt(tooth_faces[:, 1]**2 + tooth_faces[:, 2]**2)
 
-            coverage_data_dist += list(cut_info[:, 0])
-            coverage_data_theta += list(thetas_new)
+        # need to update this visualization with new cut_info format
+        #coverage_data_dist += list(cut_info[:, 0])
+        #coverage_data_theta += list(thetas_new)
 
-            tooth_faces.append((thetas_new, rs_new))
+        #tooth_faces.append((thetas_new, rs_new))
+
+        ## post-process tooth_faces
+        #N = len(tooth_faces)
+        #tf = []
+        #for i in range(N):
+        #    if tooth_faces[i] == 'root':
+        #        pass
+        #    else:
+        #        tf.append(tooth_faces[i])
+        #tooth_faces = tf
 
 
         if False:
@@ -330,13 +365,15 @@ class ToothCutter:
             plt.grid()
             plt.show()
 
-        all_thetas = []
-        all_rs = []
-        for thetas_new, rs_new in tooth_faces:
-            #all_thetas += [thetas_new[0]] + list(thetas_new) + [thetas_new[-1]]
-            #all_rs += [0.1] + list(rs_new) + [0.1]
-            all_thetas += list(thetas_new)
-            all_rs += list(rs_new)
+        #all_thetas = []
+        #all_rs = []
+        #for thetas_new, rs_new in tooth_faces:
+        #    #all_thetas += [thetas_new[0]] + list(thetas_new) + [thetas_new[-1]]
+        #    #all_rs += [0.1] + list(rs_new) + [0.1]
+        #    all_thetas += list(thetas_new)
+        #    all_rs += list(rs_new)
+        all_thetas = thetas_new
+        all_rs = rs_new
 
         test_g = Gear((gear.repetitions_numerator, gear.repetitions_denominator),
                 np.array(all_thetas),
@@ -352,10 +389,12 @@ class ToothCutter:
         return test_g
 
 
-tooth_cutter = ToothCutter(16, 20, overlap=0.3, offset=0)
+#tooth_cutter = ToothCutter(16, 20, overlap=0.3, offset=0)
+tooth_cutter = ToothCutter(16, 35, overlap=0.1, offset=0)
 
 #old_assembly = gears_v2.test_simple()
-old_assembly = gears_v2.test_circle()
+#old_assembly = gears_v2.test_circle()
+old_assembly = gears_v2.rubiks()
 #assembly.animate()
 
 g0 = old_assembly.gears[0]
